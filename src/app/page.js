@@ -1,6 +1,7 @@
 "use client";
 import React, { useState, useEffect, useRef } from 'react';
 import { SAMPLE_DOCUMENTS } from '@/lib/sampleData';
+import { GOVT_HEALTH_HELPLINES } from '@/lib/helplinesData';
 import { parseDocumentText } from '@/lib/parser';
 import { runComplianceAudit } from '@/lib/auditEngine';
 import { generateVerifiableSummary } from '@/lib/summaryEngine';
@@ -21,11 +22,15 @@ export default function HealioApp() {
   const [summaryData, setSummaryData] = useState(null);
   const [activeHighlightLine, setActiveHighlightLine] = useState(null);
   
-  // Page Routing State (home, stream, audit, summary, qa)
+  // Page Routing State (home, stream, audit, summary, qa, helplines)
   const [activePage, setActivePage] = useState('home');
   const [docSearchQuery, setDocSearchQuery] = useState('');
   const [qaQuery, setQaQuery] = useState('');
   const [qaResponse, setQaResponse] = useState(null);
+
+  // Government Helplines Search & Category Filters
+  const [helplineSearch, setHelplineSearch] = useState('');
+  const [helplineCategoryFilter, setHelplineCategoryFilter] = useState('All');
   
   const [showRegistryModal, setShowRegistryModal] = useState(false);
   const [registrySearchQuery, setRegistrySearchQuery] = useState('');
@@ -310,6 +315,23 @@ export default function HealioApp() {
     return docs;
   };
 
+  const getFilteredHelplines = () => {
+    let lines = GOVT_HEALTH_HELPLINES;
+    if (helplineCategoryFilter !== 'All') {
+      lines = lines.filter(h => h.category === helplineCategoryFilter);
+    }
+    const term = helplineSearch.toLowerCase().trim();
+    if (term) {
+      lines = lines.filter(h => 
+        h.name.toLowerCase().includes(term) ||
+        h.number.toLowerCase().includes(term) ||
+        h.agency.toLowerCase().includes(term) ||
+        h.description.toLowerCase().includes(term)
+      );
+    }
+    return lines;
+  };
+
   const patientDocsCount = getStoredDocuments('patients').length;
   const policyDocsCount = getStoredDocuments('policies').length;
   const dynamicQuestions = generateDocumentQuestions(parsedDoc, activeDocData);
@@ -367,6 +389,9 @@ export default function HealioApp() {
           <button className={`nav-link ${activePage === 'qa' ? 'active' : ''}`} onClick={() => setActivePage('qa')}>
             💬 Grounded Evidence Q&A ({dynamicQuestions.length})
           </button>
+          <button className={`nav-link ${activePage === 'helplines' ? 'active' : ''}`} onClick={() => setActivePage('helplines')}>
+            📞 Govt Health Lines ({GOVT_HEALTH_HELPLINES.length})
+          </button>
         </div>
       </nav>
 
@@ -387,7 +412,7 @@ export default function HealioApp() {
               <h1 className="healio-title">Healio</h1>
               <div className="healio-subtitle">Next-Generation Verifiable Clinical Intelligence & Medical Governance Studio</div>
               <p className="healio-description">
-                Healio is an advanced clinical audit and governance platform designed for medical boards, hospital administrators, healthcare providers, and patients. It parses multi-format medical records and hospital policies (PDF, Word, Text, RTF, CSV, HTML) into line-indexed statutory audit matrices, grounded evidence Q&A engines, and dual-file document registries with 100% verifiable source line citations.
+                Healio is an advanced clinical audit and governance platform designed for medical boards, hospital administrators, healthcare providers, and patients. It parses multi-format medical records and hospital policies (PDF, Word, Text, RTF, CSV, HTML) into line-indexed statutory audit matrices, grounded evidence Q&A engines, dual-file document registries, and official government health helplines directories.
               </p>
 
               <div style={{ display: 'flex', gap: '12px', marginTop: '20px', flexWrap: 'wrap' }}>
@@ -397,8 +422,8 @@ export default function HealioApp() {
                 <button className="btn btn-secondary" onClick={() => setActivePage('qa')}>
                   💬 Launch Grounded Q&A Assistant
                 </button>
-                <button className="btn btn-secondary" onClick={() => setActivePage('stream')}>
-                  📜 View Document Stream
+                <button className="btn btn-secondary" onClick={() => setActivePage('helplines')}>
+                  📞 Government Emergency Helplines
                 </button>
               </div>
             </div>
@@ -479,16 +504,16 @@ export default function HealioApp() {
                 </button>
               </div>
 
-              <div className="feature-card" onClick={() => setActivePage('summary')}>
+              <div className="feature-card" onClick={() => setActivePage('helplines')}>
                 <div>
-                  <div className="feature-icon">📊</div>
-                  <div className="feature-card-title">Executive Summary</div>
+                  <div className="feature-icon">📞</div>
+                  <div className="feature-card-title">Govt Health Helplines</div>
                   <div className="feature-card-desc">
-                    Structured overview of the loaded document, compliance scores, risk level breakdowns, and verifiable line-cited takeaways.
+                    National Emergency (108, 112), Tele-MANAS (14416), PM-JAY (14555), Poison Control, and senior citizen health numbers with 1-click dial.
                   </div>
                 </div>
                 <button className="btn btn-primary" style={{ fontSize: '0.78rem', width: '100%', justifyContent: 'center' }}>
-                  View Executive Summary ➔
+                  View Emergency Numbers ➔
                 </button>
               </div>
 
@@ -815,6 +840,122 @@ export default function HealioApp() {
                 💬 Select any of the loaded document questions above or type a custom query to get grounded answers with verbatim line citations.
               </div>
             )}
+          </div>
+        )}
+
+        {/* Page 6: Government Health Emergency & Helplines Directory Workspace */}
+        {activePage === 'helplines' && (
+          <div className="clean-card">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
+              <div>
+                <h2 style={{ fontSize: '1.25rem', fontFamily: 'var(--font-heading)', color: 'white', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  📞 Official Government Health Helplines Directory
+                </h2>
+                <p style={{ fontSize: '0.84rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                  Verified emergency response lines, mental health support, PM-JAY health insurance support, and statutory health authorities.
+                </p>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span className="badge badge-success" style={{ fontSize: '0.76rem', padding: '6px 12px' }}>
+                  ✅ Official MOHFW / AIIMS / NITI Aayog Verified
+                </span>
+              </div>
+            </div>
+
+            {/* Category Filter Pills */}
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '16px' }}>
+              {['All', 'Emergency & Ambulance', 'Mental Health & Counseling', 'Health Insurance & PM-JAY', 'Specialized Centers', 'Elder & Child Care'].map(cat => (
+                <button 
+                  key={cat}
+                  className={`btn ${helplineCategoryFilter === cat ? 'btn-primary' : 'btn-secondary'}`}
+                  style={{ padding: '6px 14px', fontSize: '0.78rem' }}
+                  onClick={() => setHelplineCategoryFilter(cat)}
+                >
+                  {cat === 'All' ? '📁 All Lines' : cat}
+                </button>
+              ))}
+            </div>
+
+            {/* Search Input */}
+            <div style={{ marginBottom: '20px' }}>
+              <input 
+                type="text" 
+                className="search-input" 
+                style={{ width: '100%', padding: '12px 16px', fontSize: '0.92rem' }}
+                placeholder="Search helpline number, service title, emergency type, or agency..." 
+                value={helplineSearch}
+                onChange={e => setHelplineSearch(e.target.value)}
+              />
+            </div>
+
+            {/* Helplines Card Grid */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '16px' }}>
+              {getFilteredHelplines().map(h => (
+                <div 
+                  key={h.id} 
+                  style={{
+                    background: 'rgba(15, 23, 42, 0.7)',
+                    border: '1px solid var(--border-card)',
+                    borderRadius: '12px',
+                    padding: '20px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justify: 'space-between',
+                    transition: 'all 0.2s ease',
+                    boxShadow: '0 4px 14px rgba(0, 0, 0, 0.3)'
+                  }}
+                >
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                      <span style={{ fontSize: '1.8rem' }}>{h.icon}</span>
+                      <span className="badge badge-info" style={{ fontSize: '0.7rem' }}>{h.category}</span>
+                    </div>
+
+                    <h3 style={{ fontSize: '1.05rem', fontFamily: 'var(--font-heading)', color: 'white', fontWeight: 700, marginBottom: '4px' }}>
+                      {h.name}
+                    </h3>
+                    
+                    <div style={{ fontSize: '0.75rem', color: 'var(--primary-cyan)', fontWeight: 600, marginBottom: '12px' }}>
+                      🏛️ {h.agency}
+                    </div>
+
+                    <div style={{ background: 'rgba(6, 182, 212, 0.12)', border: '1px solid rgba(6, 182, 212, 0.3)', borderRadius: '10px', padding: '12px', textAlign: 'center', marginBottom: '14px' }}>
+                      <div style={{ fontSize: '1.35rem', fontWeight: 800, color: '#ffffff', fontFamily: 'var(--font-code)', letterSpacing: '0.5px' }}>
+                        {h.number}
+                      </div>
+                      <div style={{ fontSize: '0.72rem', color: 'var(--accent-emerald)', fontWeight: 600, marginTop: '2px' }}>
+                        🕒 {h.hours}
+                      </div>
+                    </div>
+
+                    <p style={{ fontSize: '0.84rem', color: '#cbd5e1', lineHeight: 1.5, marginBottom: '16px' }}>
+                      {h.description}
+                    </p>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '10px' }}>
+                    <a 
+                      href={`tel:${h.number.split('/')[0].trim().replace(/[^0-9]/g, '')}`} 
+                      className="btn btn-primary" 
+                      style={{ flex: 1, justifyContent: 'center', textDecoration: 'none', fontSize: '0.82rem' }}
+                    >
+                      📞 Direct Dial
+                    </a>
+                    <button 
+                      className="btn btn-secondary" 
+                      style={{ fontSize: '0.82rem' }}
+                      onClick={() => {
+                        navigator.clipboard.writeText(h.number);
+                        alert(`Copied helpline number: ${h.number}`);
+                      }}
+                    >
+                      📋 Copy Number
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </main>
