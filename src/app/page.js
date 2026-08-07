@@ -13,6 +13,7 @@ import {
   exportRegistryJSON,
   importRegistryJSON
 } from '@/lib/storageEngine';
+import { extractTextFromFile } from '@/lib/fileExtractor';
 
 export default function VeriMedApp() {
   const [allDocs, setAllDocs] = useState([]);
@@ -37,6 +38,7 @@ export default function VeriMedApp() {
   
   const [showExportModal, setShowExportModal] = useState(false);
   const [isDemoRunning, setIsDemoRunning] = useState(false);
+  const [isExtractingFile, setIsExtractingFile] = useState(false);
 
   const fileInputRef = useRef(null);
   const importFileInputRef = useRef(null);
@@ -168,17 +170,21 @@ export default function VeriMedApp() {
     setActiveTab('audit');
   };
 
-  const handleCustomFileUpload = (e) => {
+  const handleCustomFileUpload = async (e) => {
     const file = e.target.files[0];
     if (file) {
       if (!customDocTitle) {
         setCustomDocTitle(file.name.replace(/\.[^/.]+$/, ''));
       }
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        setCustomDocText(ev.target.result);
-      };
-      reader.readAsText(file);
+      setIsExtractingFile(true);
+      try {
+        const text = await extractTextFromFile(file);
+        setCustomDocText(text);
+      } catch (err) {
+        alert('Failed to extract text from file: ' + err.message);
+      } finally {
+        setIsExtractingFile(false);
+      }
     }
   };
 
@@ -536,12 +542,32 @@ export default function VeriMedApp() {
                 </select>
               </div>
               <div>
-                <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Upload File (TXT, MD)</label>
-                <input type="file" className="search-input" style={{ width: '100%', padding: '6px' }} accept=".txt,.md" ref={fileInputRef} onChange={handleCustomFileUpload} />
+                <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>
+                  Upload Document File (PDF, Word DOCX/DOC, Text, Markdown, CSV, JSON, HTML)
+                </label>
+                <input 
+                  type="file" 
+                  className="search-input" 
+                  style={{ width: '100%', padding: '6px' }} 
+                  accept=".pdf,.docx,.doc,.txt,.md,.json,.csv,.rtf,.html,.htm" 
+                  ref={fileInputRef} 
+                  onChange={handleCustomFileUpload} 
+                />
+                <div style={{ display: 'flex', gap: '6px', marginTop: '6px', flexWrap: 'wrap' }}>
+                  <span className="badge badge-info" style={{ fontSize: '0.68rem' }}>📄 PDF (.pdf)</span>
+                  <span className="badge badge-info" style={{ fontSize: '0.68rem' }}>📝 Word (.docx, .doc)</span>
+                  <span className="badge badge-info" style={{ fontSize: '0.68rem' }}>📑 Text & MD (.txt, .md)</span>
+                  <span className="badge badge-info" style={{ fontSize: '0.68rem' }}>📊 Data (.json, .csv, .html)</span>
+                </div>
+                {isExtractingFile && (
+                  <div style={{ color: 'var(--primary-cyan)', fontSize: '0.78rem', marginTop: '6px' }}>
+                    ⏳ Extracting text content from uploaded document...
+                  </div>
+                )}
               </div>
               <div>
-                <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Raw Text Content</label>
-                <textarea className="search-input" style={{ width: '100%', height: '150px', resize: 'vertical' }} placeholder="Paste document text here..." value={customDocText} onChange={e => setCustomDocText(e.target.value)}></textarea>
+                <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Extracted Document Text Content</label>
+                <textarea className="search-input" style={{ width: '100%', height: '150px', resize: 'vertical' }} placeholder="Paste document text here or upload any PDF/Word/Text file above..." value={customDocText} onChange={e => setCustomDocText(e.target.value)}></textarea>
               </div>
               <button className="btn btn-primary" style={{ justifyContent: 'center', marginTop: '10px' }} onClick={handleIngestCustomDoc}>
                 ⚡ Parse & Audit Document
