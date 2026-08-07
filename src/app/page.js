@@ -23,7 +23,7 @@ export default function HealioApp() {
   const [summaryData, setSummaryData] = useState(null);
   const [activeHighlightLine, setActiveHighlightLine] = useState(null);
   
-  const [activeTab, setActiveTab] = useState('home'); // home, audit, summary, qa, schema
+  const [activeTab, setActiveTab] = useState('home'); // home, audit, summary, qa
   const [docSearchQuery, setDocSearchQuery] = useState('');
   const [qaQuery, setQaQuery] = useState('');
   const [qaResponse, setQaResponse] = useState(null);
@@ -39,13 +39,54 @@ export default function HealioApp() {
   const [customDocText, setCustomDocText] = useState('');
   
   const [showExportModal, setShowExportModal] = useState(false);
-  const [isDemoRunning, setIsDemoRunning] = useState(false);
   const [isExtractingFile, setIsExtractingFile] = useState(false);
+
+  // Mandatory User Identity & Log States
+  const [userName, setUserName] = useState('');
+  const [showNameModal, setShowNameModal] = useState(false);
+  const [nameInput, setNameInput] = useState('');
+  const [showLogModal, setShowLogModal] = useState(false);
+  const [activityLogs, setActivityLogs] = useState([]);
 
   const fileInputRef = useRef(null);
   const importFileInputRef = useRef(null);
 
+  // Helper to append a user activity log entry
+  const addLogEntry = (action, details, user = userName) => {
+    if (typeof window === 'undefined') return;
+    const entry = {
+      id: `log-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      user: user || 'Anonymous User',
+      action,
+      details,
+      timestamp: new Date().toISOString()
+    };
+    setActivityLogs((prevLogs) => {
+      const updated = [entry, ...prevLogs];
+      try {
+        localStorage.setItem('healio_user_logs', JSON.stringify(updated.slice(0, 100)));
+      } catch (e) {
+        console.error(e);
+      }
+      return updated;
+    });
+  };
+
   useEffect(() => {
+    // Check saved user identity
+    if (typeof window !== 'undefined') {
+      const savedUser = localStorage.getItem('healio_user_name');
+      const savedLogsRaw = localStorage.getItem('healio_user_logs');
+      const existingLogs = savedLogsRaw ? JSON.parse(savedLogsRaw) : [];
+      setActivityLogs(existingLogs);
+
+      if (savedUser && savedUser.trim()) {
+        setUserName(savedUser.trim());
+      } else {
+        setShowNameModal(true);
+      }
+    }
+
     // Initialization: Seed sample docs if empty, load docs into 2 separate files
     let stored = getStoredDocuments('all');
     if (stored.length === 0) {
@@ -80,16 +121,38 @@ export default function HealioApp() {
     
     setAllDocs(stored.length > 0 ? stored : SAMPLE_DOCUMENTS);
     if (stored.length > 0) {
-      handleLoadDocument(stored[0]);
+      handleLoadDocument(stored[0], false);
     }
   }, []);
+
+  const handleSaveUserName = () => {
+    const trimmed = nameInput.trim();
+    if (!trimmed) {
+      alert('Please enter your name to access Healio.');
+      return;
+    }
+    setUserName(trimmed);
+    localStorage.setItem('healio_user_name', trimmed);
+    setShowNameModal(false);
+    addLogEntry('Session Started', 'Logged into Healio Platform', trimmed);
+  };
+
+  const handleChangeUserName = () => {
+    const newName = prompt('Enter your name for Healio session logs:', userName);
+    if (newName && newName.trim()) {
+      const trimmed = newName.trim();
+      setUserName(trimmed);
+      localStorage.setItem('healio_user_name', trimmed);
+      addLogEntry('Identity Changed', `Switched active user identity to "${trimmed}"`, trimmed);
+    }
+  };
 
   const reloadAllDocs = (filter = registryFileFilter) => {
     const updated = getStoredDocuments(filter);
     setAllDocs(updated);
   };
 
-  const handleLoadDocument = (docData) => {
+  const handleLoadDocument = (docData, logAction = true) => {
     setActiveDocData(docData);
     const parsed = parseDocumentText(docData.rawContent, docData.id);
     setParsedDoc(parsed);
@@ -100,6 +163,10 @@ export default function HealioApp() {
     setQaQuery('');
     setDocSearchQuery('');
     setActiveHighlightLine(null);
+
+    if (logAction) {
+      addLogEntry('Loaded & Audited Document', `Loaded "${docData.title}" (${docData.targetFile === 'patients' ? 'Patient File' : 'Policies File'})`);
+    }
 
     // Scroll Indexed Document Stream to top when new PDF/document is loaded
     setTimeout(() => {
@@ -122,24 +189,7 @@ export default function HealioApp() {
     if (!query.trim()) return;
     const result = answerGroundedQuery(query, parsedDoc, auditResults);
     setQaResponse(result);
-  };
-
-  const handleQuickDemo = () => {
-    setIsDemoRunning(true);
-    setTimeout(() => {
-      const docs = getStoredDocuments('all');
-      const docsToUse = docs.length > 0 ? docs : SAMPLE_DOCUMENTS;
-      if (docsToUse.length > 0) {
-        handleLoadDocument(docsToUse[0]);
-      }
-      setActiveTab('audit');
-      setIsDemoRunning(false);
-      setTimeout(() => {
-        if (auditResults.length > 1) {
-          jumpToLine(auditResults[1].citation.startLine, auditResults[1].citation.endLine);
-        }
-      }, 100);
-    }, 600);
+    addLogEntry('Asked Grounded Query', `Query: "${query.trim()}" on "${activeDocData?.title || 'Document'}"`);
   };
 
   const handleDeleteDoc = (id, targetFile) => {
@@ -147,6 +197,7 @@ export default function HealioApp() {
       deleteDocumentFromRegistry(id, targetFile);
       const updatedDocs = getStoredDocuments(registryFileFilter);
       setAllDocs(updatedDocs);
+      addLogEntry('Deleted Document', `Removed document ID ${id} from ${targetFile} registry`);
       if (activeDocData?.id === id && updatedDocs.length > 0) {
         handleLoadDocument(updatedDocs[0]);
       }
@@ -185,6 +236,7 @@ export default function HealioApp() {
     setShowUploadModal(false);
     setCustomDocText('');
     setCustomDocTitle('');
+    addLogEntry('Inserted New Document', `Inserted "${title}" into ${customTargetFile === 'patients' ? 'Patient Records File' : 'Hospital Policies File'}`);
     handleLoadDocument(docRecord);
     setActiveTab('audit');
   };
@@ -214,6 +266,7 @@ export default function HealioApp() {
       reader.onload = (ev) => {
         const count = importRegistryFileJSON(ev.target.result, targetFile);
         alert(`Successfully imported ${count} documents into ${targetFile === 'patients' ? 'Patient Records File' : 'Hospital Policies File'}!`);
+        addLogEntry('Imported Registry JSON', `Restored ${count} files into ${targetFile} registry`);
         reloadAllDocs();
       };
       reader.readAsText(file);
@@ -242,34 +295,6 @@ export default function HealioApp() {
     return docs;
   };
 
-  const schemaPayload = activeDocData && parsedDoc && summaryData ? {
-    documentId: activeDocData.id,
-    title: activeDocData.title,
-    category: activeDocData.category,
-    targetStorageFile: activeDocData.targetFile || 'policies',
-    description: activeDocData.description,
-    addedTimestamp: activeDocData.addedAt || new Date().toISOString(),
-    parsingMetadata: parsedDoc.metadata,
-    sections: parsedDoc.sections,
-    complianceStats: summaryData.stats,
-    auditMatrix: auditResults.map((a) => ({
-      ruleId: a.id,
-      category: a.category,
-      title: a.title,
-      status: a.status,
-      findings: a.findings,
-      lineCitation: a.citation,
-      verbatimQuote: a.verbatimQuote,
-      recommendation: a.recommendation
-    })),
-    indexedLinesPreview: parsedDoc.lines.slice(0, 10).map((l) => ({
-      line: l.lineNumber,
-      section: l.section,
-      text: l.text,
-      tags: l.tags
-    }))
-  } : null;
-
   const patientDocsCount = getStoredDocuments('patients').length;
   const policyDocsCount = getStoredDocuments('policies').length;
   const dynamicQuestions = generateDocumentQuestions(parsedDoc, activeDocData);
@@ -290,14 +315,17 @@ export default function HealioApp() {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          {/* User Identity & Log Button */}
+          <button className="btn btn-secondary" style={{ borderColor: 'var(--primary-cyan)', color: 'white' }} onClick={() => setShowLogModal(true)}>
+            👤 User Log: <strong style={{ color: 'var(--primary-cyan)', marginLeft: '2px' }}>{userName || 'Guest'}</strong>
+          </button>
+
           <button className="btn btn-secondary" onClick={() => setShowRegistryModal(true)}>
             📁 Registries: 📋 Patients ({patientDocsCount}) | 🏥 Policies ({policyDocsCount})
           </button>
+
           <button className="btn btn-primary" onClick={() => setShowUploadModal(true)}>
             ➕ Insert Document
-          </button>
-          <button className="btn btn-secondary" onClick={handleQuickDemo} disabled={isDemoRunning}>
-            {isDemoRunning ? '⏳ Running...' : '⚡ Quick Demo'}
           </button>
         </div>
       </header>
@@ -412,9 +440,6 @@ export default function HealioApp() {
             <button className={`tab-btn ${activeTab === 'policies_view' ? 'active' : ''}`} onClick={() => { setRegistryFileFilter('policies'); setShowRegistryModal(true); }}>
               🏥 Hospital Policies ({policyDocsCount})
             </button>
-            <button className={`tab-btn ${activeTab === 'schema' ? 'active' : ''}`} onClick={() => setActiveTab('schema')}>
-              ⚙️ JSON Schema
-            </button>
           </div>
 
           <div className="tab-content">
@@ -425,7 +450,11 @@ export default function HealioApp() {
                 <div className="healio-hero">
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
                     <span className="badge badge-info" style={{ fontSize: '0.75rem', padding: '4px 10px' }}>✨ Healio Clinical AI Platform v2.0</span>
-                    <span className="badge badge-success" style={{ fontSize: '0.75rem', padding: '4px 10px' }}>🛡️ 100% Verifiable Evidence</span>
+                    {userName && (
+                      <span className="badge badge-success" style={{ fontSize: '0.75rem', padding: '4px 10px' }}>
+                        👤 Logged in as: {userName}
+                      </span>
+                    )}
                   </div>
                   <h1 className="healio-title">Healio</h1>
                   <div className="healio-subtitle">Next-Generation Verifiable Clinical Intelligence & Medical Governance Studio</div>
@@ -440,8 +469,8 @@ export default function HealioApp() {
                     <button className="btn btn-secondary" onClick={() => setActiveTab('qa')}>
                       💬 Launch Grounded Q&A Assistant
                     </button>
-                    <button className="btn btn-secondary" onClick={() => setShowUploadModal(true)}>
-                      ➕ Insert New Document
+                    <button className="btn btn-secondary" onClick={() => setShowLogModal(true)}>
+                      📜 View User Activity Log
                     </button>
                   </div>
                 </div>
@@ -522,16 +551,16 @@ export default function HealioApp() {
                     </button>
                   </div>
 
-                  <div className="feature-card" onClick={() => setShowUploadModal(true)}>
+                  <div className="feature-card" onClick={() => setShowLogModal(true)}>
                     <div>
-                      <div className="feature-icon">➕</div>
-                      <div className="feature-card-title">Insert Medical Document</div>
+                      <div className="feature-icon">📜</div>
+                      <div className="feature-card-title">User Audit & Activity Log</div>
                       <div className="feature-card-desc">
-                        Upload & extract multi-format files (PDF, Word DOCX/DOC, Text, MD, CSV, JSON, HTML) into Healio's dual-file registries for instant audit.
+                        View active user session details for <strong style={{ color: 'var(--primary-cyan)' }}>{userName || 'User'}</strong> and full audit trail of documents loaded, inserted, and queried.
                       </div>
                     </div>
-                    <button className="btn btn-primary" style={{ fontSize: '0.78rem', width: '100%', justifyContent: 'center' }}>
-                      Insert Document File ➔
+                    <button className="btn btn-secondary" style={{ fontSize: '0.78rem', width: '100%', justifyContent: 'center' }}>
+                      View User Log ➔
                     </button>
                   </div>
                 </div>
@@ -742,26 +771,91 @@ export default function HealioApp() {
                 )}
               </div>
             )}
-
-            {activeTab === 'schema' && (
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
-                  <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Structured JSON Representation of Document & Audit</span>
-                  <button className="btn btn-secondary" style={{ padding: '4px 10px', fontSize: '0.75rem' }} onClick={(e) => {
-                    navigator.clipboard.writeText(JSON.stringify(schemaPayload, null, 2));
-                    const orig = e.target.textContent;
-                    e.target.textContent = '✓ Copied!';
-                    setTimeout(() => e.target.textContent = orig, 2000);
-                  }}>📋 Copy JSON</button>
-                </div>
-                <pre style={{ background: '#080c14', padding: '16px', borderRadius: '8px', fontSize: '0.8rem', color: '#a5b4fc', overflowX: 'auto', fontFamily: 'var(--font-code)' }}>
-                  {schemaPayload ? JSON.stringify(schemaPayload, null, 2) : 'Loading...'}
-                </pre>
-              </div>
-            )}
           </div>
         </div>
       </div>
+
+      {/* Mandatory User Name Entry Modal */}
+      {showNameModal && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ textAlign: 'center', width: '480px' }}>
+            <div className="brand-logo" style={{ margin: '0 auto 12px auto', width: '48px', height: '48px', fontSize: '1.4rem' }}>H</div>
+            <h2 style={{ fontFamily: 'var(--font-heading)', color: 'white', fontSize: '1.4rem', marginBottom: '6px' }}>Welcome to Healio</h2>
+            <p style={{ fontSize: '0.86rem', color: 'var(--text-muted)', marginBottom: '20px' }}>
+              Please enter your full name or title to access the Clinical AI & Governance Studio. Your name will be attached to session audit logs.
+            </p>
+            <input 
+              type="text" 
+              className="search-input" 
+              style={{ width: '100%', padding: '12px', fontSize: '1rem', textAlign: 'center', marginBottom: '16px' }} 
+              placeholder="e.g. Dr. Somesh / Auditor Jane Doe" 
+              value={nameInput}
+              onChange={e => setNameInput(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleSaveUserName()}
+              autoFocus
+            />
+            <button className="btn btn-primary" style={{ width: '100%', justifyContent: 'center', padding: '10px', fontSize: '0.95rem' }} onClick={handleSaveUserName}>
+              Enter Healio Platform ➔
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* User Activity Log Modal */}
+      {showLogModal && (
+        <div className="modal-overlay" onClick={() => setShowLogModal(false)}>
+          <div className="modal-content" style={{ width: '750px', maxWidth: '95vw' }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <div>
+                <h3 style={{ fontFamily: 'var(--font-heading)', color: 'white' }}>👤 User Session & Activity Log</h3>
+                <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Audit trail of document insertions, audits, and queries</span>
+              </div>
+              <button style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', fontSize: '1.2rem' }} onClick={() => setShowLogModal(false)}>✕</button>
+            </div>
+
+            <div style={{ background: 'rgba(6, 182, 212, 0.1)', border: '1px solid rgba(6, 182, 212, 0.3)', borderRadius: '8px', padding: '12px 16px', marginBottom: '16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--primary-cyan)', fontWeight: 600 }}>ACTIVE USER IDENTITY</div>
+                <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'white', fontFamily: 'var(--font-heading)' }}>👤 {userName || 'Guest User'}</div>
+              </div>
+              <button className="btn btn-secondary" style={{ fontSize: '0.78rem' }} onClick={handleChangeUserName}>
+                ✏️ Change Name
+              </button>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '350px', overflowY: 'auto', paddingRight: '4px' }}>
+              {activityLogs.length === 0 ? (
+                <div style={{ padding: '30px', textAlign: 'center', color: 'var(--text-muted)' }}>No user activity recorded yet in this session.</div>
+              ) : (
+                activityLogs.map((log) => (
+                  <div key={log.id} style={{ background: 'rgba(15, 23, 42, 0.6)', border: '1px solid var(--border-card)', borderRadius: '8px', padding: '10px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '2px' }}>
+                        <span style={{ fontWeight: 700, color: 'var(--primary-cyan)', fontSize: '0.85rem' }}>{log.action}</span>
+                        <span className="badge badge-info" style={{ fontSize: '0.68rem' }}>👤 {log.user}</span>
+                      </div>
+                      <div style={{ fontSize: '0.8rem', color: '#cbd5e1' }}>{log.details}</div>
+                    </div>
+                    <span style={{ fontSize: '0.72rem', color: 'var(--text-dim)', whiteSpace: 'nowrap' }}>
+                      {new Date(log.timestamp).toLocaleTimeString()}
+                    </span>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <div style={{ marginTop: '16px', display: 'flex', justifyContent: 'space-between' }}>
+              <button className="btn btn-secondary" style={{ fontSize: '0.78rem', color: '#fb7185' }} onClick={() => {
+                if (confirm('Clear all session user logs?')) {
+                  setActivityLogs([]);
+                  localStorage.removeItem('healio_user_logs');
+                }
+              }}>🗑️ Clear Activity Logs</button>
+              <button className="btn btn-primary" onClick={() => setShowLogModal(false)}>Close Log</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Upload/Insert Modal */}
       {showUploadModal && (
