@@ -23,7 +23,8 @@ export default function HealioApp() {
   const [summaryData, setSummaryData] = useState(null);
   const [activeHighlightLine, setActiveHighlightLine] = useState(null);
   
-  const [activeTab, setActiveTab] = useState('home'); // home, audit, summary, qa
+  // Page Routing State (home, stream, audit, summary, qa)
+  const [activePage, setActivePage] = useState('home');
   const [docSearchQuery, setDocSearchQuery] = useState('');
   const [qaQuery, setQaQuery] = useState('');
   const [qaResponse, setQaResponse] = useState(null);
@@ -178,11 +179,14 @@ export default function HealioApp() {
   };
 
   const jumpToLine = (startLine, endLine = startLine) => {
+    setActivePage('stream');
     setActiveHighlightLine(startLine);
-    const elem = document.getElementById(`doc-line-${startLine}`);
-    if (elem) {
-      elem.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }
+    setTimeout(() => {
+      const elem = document.getElementById(`doc-line-${startLine}`);
+      if (elem) {
+        elem.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }, 100);
   };
 
   const handleAskQuery = (query) => {
@@ -238,7 +242,7 @@ export default function HealioApp() {
     setCustomDocTitle('');
     addLogEntry('Inserted New Document', `Inserted "${title}" into ${customTargetFile === 'patients' ? 'Patient Records File' : 'Hospital Policies File'}`);
     handleLoadDocument(docRecord);
-    setActiveTab('audit');
+    setActivePage('audit');
   };
 
   const handleCustomFileUpload = async (e) => {
@@ -301,7 +305,7 @@ export default function HealioApp() {
 
   return (
     <div>
-      {/* Header */}
+      {/* App Header */}
       <header className="app-header">
         <div className="brand-container">
           <div className="brand-logo">H</div>
@@ -315,7 +319,6 @@ export default function HealioApp() {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          {/* User Identity & Log Button */}
           <button className="btn btn-secondary" style={{ borderColor: 'var(--primary-cyan)', color: 'white' }} onClick={() => setShowLogModal(true)}>
             👤 User Log: <strong style={{ color: 'var(--primary-cyan)', marginLeft: '2px' }}>{userName || 'Guest'}</strong>
           </button>
@@ -330,450 +333,479 @@ export default function HealioApp() {
         </div>
       </header>
 
-      {/* Main Workspace Layout */}
-      <div className="main-layout">
-        {/* Left Panel: Document Viewer (Indexed Document Stream) */}
-        <div className="left-panel">
-          <div className="panel-header">
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', marginBottom: '8px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                <h2 style={{ fontSize: '1rem', fontFamily: 'var(--font-heading)' }}>Indexed Document Stream</h2>
-                <span className="badge badge-info">{parsedDoc?.metadata?.totalLines || 0} Lines</span>
-                {activeDocData?.title && (
-                  <span className="badge badge-success" style={{ fontSize: '0.68rem', maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={activeDocData.title}>
-                    📄 {activeDocData.title}
-                  </span>
-                )}
-                {activeDocData?.targetFile && (
-                  <span className="badge badge-warning" style={{ fontSize: '0.68rem' }}>
-                    {activeDocData.targetFile === 'patients' ? '📋 Patients File' : '🏥 Policies File'}
+      {/* Top Clean Navigation Bar */}
+      <nav className="nav-bar">
+        <div className="nav-container">
+          <button className={`nav-link ${activePage === 'home' ? 'active' : ''}`} onClick={() => setActivePage('home')}>
+            🏠 Home Overview
+          </button>
+          <button className={`nav-link ${activePage === 'stream' ? 'active' : ''}`} onClick={() => setActivePage('stream')}>
+            📜 Document Reader ({parsedDoc?.metadata?.totalLines || 0} Lines)
+          </button>
+          <button className={`nav-link ${activePage === 'audit' ? 'active' : ''}`} onClick={() => setActivePage('audit')}>
+            🛡️ Statutory Audit Matrix ({auditResults.length})
+          </button>
+          <button className={`nav-link ${activePage === 'summary' ? 'active' : ''}`} onClick={() => setActivePage('summary')}>
+            📊 Executive Summary
+          </button>
+          <button className={`nav-link ${activePage === 'qa' ? 'active' : ''}`} onClick={() => setActivePage('qa')}>
+            💬 Grounded Evidence Q&A ({dynamicQuestions.length})
+          </button>
+        </div>
+      </nav>
+
+      {/* Clean Page View Containers */}
+      <main className="page-container">
+        {/* Page 1: Home Landing Page */}
+        {activePage === 'home' && (
+          <div>
+            <div className="healio-hero">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                <span className="badge badge-info" style={{ fontSize: '0.75rem', padding: '4px 10px' }}>✨ Healio Clinical AI Platform v2.0</span>
+                {userName && (
+                  <span className="badge badge-success" style={{ fontSize: '0.75rem', padding: '4px 10px' }}>
+                    👤 Logged in as: {userName}
                   </span>
                 )}
               </div>
-              <button className="btn btn-secondary" style={{ padding: '4px 8px', fontSize: '0.72rem' }} onClick={() => setShowRegistryModal(true)}>Switch Document 🔁</button>
+              <h1 className="healio-title">Healio</h1>
+              <div className="healio-subtitle">Next-Generation Verifiable Clinical Intelligence & Medical Governance Studio</div>
+              <p className="healio-description">
+                Healio is an advanced clinical audit and governance platform designed for medical boards, hospital administrators, healthcare providers, and clinical auditors. It parses multi-format medical records and hospital policies (PDF, Word, Text, RTF, CSV, JSON, HTML) into line-indexed statutory audit matrices, grounded evidence Q&A engines, and dual-file document registries with 100% verifiable source line citations.
+              </p>
+
+              <div style={{ display: 'flex', gap: '12px', marginTop: '20px', flexWrap: 'wrap' }}>
+                <button className="btn btn-primary" onClick={() => setActivePage('audit')}>
+                  🛡️ Launch Statutory Audit Matrix
+                </button>
+                <button className="btn btn-secondary" onClick={() => setActivePage('qa')}>
+                  💬 Launch Grounded Q&A Assistant
+                </button>
+                <button className="btn btn-secondary" onClick={() => setActivePage('stream')}>
+                  📜 View Document Stream
+                </button>
+              </div>
             </div>
-            <div style={{ width: '100%' }}>
+
+            {/* Currently Active Document Quick Status */}
+            {activeDocData && (
+              <div className="clean-card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
+                <div>
+                  <div style={{ fontSize: '0.76rem', color: 'var(--primary-cyan)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                    CURRENTLY LOADED ACTIVE DOCUMENT
+                  </div>
+                  <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'white', fontFamily: 'var(--font-heading)', marginTop: '2px' }}>
+                    📄 {activeDocData.title}
+                  </div>
+                  <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                    Category: {activeDocData.category} | File: {activeDocData.targetFile === 'patients' ? '📋 Patient Records' : '🏥 Hospital Policies'} | {parsedDoc?.metadata?.totalLines || 0} Lines Indexed
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <button className="btn btn-primary" onClick={() => setActivePage('stream')}>
+                    📜 Read Document Lines
+                  </button>
+                  <button className="btn btn-secondary" onClick={() => setShowRegistryModal(true)}>
+                    Switch Document 🔁
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Core Functions Feature Grid */}
+            <div style={{ marginBottom: '12px', marginTop: '24px' }}>
+              <h3 style={{ fontFamily: 'var(--font-heading)', color: 'white', fontSize: '1.2rem' }}>
+                Healio Dedicated Function Workspaces
+              </h3>
+              <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                Select any dedicated page below to perform clean, uncluttered medical governance workflows.
+              </p>
+            </div>
+
+            <div className="feature-cards-grid">
+              <div className="feature-card" onClick={() => setActivePage('stream')}>
+                <div>
+                  <div className="feature-icon">📜</div>
+                  <div className="feature-card-title">Document Reader Stream</div>
+                  <div className="feature-card-desc">
+                    Clean, full-focus reader displaying line-by-line indexed text, line numbers, search filters, and section headers.
+                  </div>
+                </div>
+                <button className="btn btn-primary" style={{ fontSize: '0.78rem', width: '100%', justifyContent: 'center' }}>
+                  Open Document Reader ➔
+                </button>
+              </div>
+
+              <div className="feature-card" onClick={() => setActivePage('audit')}>
+                <div>
+                  <div className="feature-icon">🛡️</div>
+                  <div className="feature-card-title">Statutory Audit Matrix</div>
+                  <div className="feature-card-desc">
+                    Automated compliance scanning against State Medical Board rules, PA supervision ratios, PDMP lookups, and HIPAA rules with line citations.
+                  </div>
+                </div>
+                <button className="btn btn-primary" style={{ fontSize: '0.78rem', width: '100%', justifyContent: 'center' }}>
+                  Open Audit Matrix ➔
+                </button>
+              </div>
+
+              <div className="feature-card" onClick={() => setActivePage('qa')}>
+                <div>
+                  <div className="feature-icon">💬</div>
+                  <div className="feature-card-title">Grounded Evidence Q&A</div>
+                  <div className="feature-card-desc">
+                    Ask any clinical, operational, or policy questions answered strictly using verbatim source lines from your loaded document with jump links.
+                  </div>
+                </div>
+                <button className="btn btn-primary" style={{ fontSize: '0.78rem', width: '100%', justifyContent: 'center' }}>
+                  Open Grounded Q&A ➔
+                </button>
+              </div>
+
+              <div className="feature-card" onClick={() => setActivePage('summary')}>
+                <div>
+                  <div className="feature-icon">📊</div>
+                  <div className="feature-card-title">Executive Summary</div>
+                  <div className="feature-card-desc">
+                    Structured overview of the loaded document, compliance scores, risk level breakdowns, and verifiable line-cited takeaways.
+                  </div>
+                </div>
+                <button className="btn btn-primary" style={{ fontSize: '0.78rem', width: '100%', justifyContent: 'center' }}>
+                  View Executive Summary ➔
+                </button>
+              </div>
+
+              <div className="feature-card" onClick={() => { setRegistryFileFilter('patients'); setShowRegistryModal(true); }}>
+                <div>
+                  <div className="feature-icon">📋</div>
+                  <div className="feature-card-title">Patient Records Registry</div>
+                  <div className="feature-card-desc">
+                    Manage patient clinical notes, EHR extracts, case hearing transcripts, and intake files stored in <code style={{ color: '#38bdf8' }}>patients_registry.json</code>.
+                  </div>
+                </div>
+                <button className="btn btn-secondary" style={{ fontSize: '0.78rem', width: '100%', justifyContent: 'center' }}>
+                  Manage Patient Files ({patientDocsCount}) ➔
+                </button>
+              </div>
+
+              <div className="feature-card" onClick={() => { setRegistryFileFilter('policies'); setShowRegistryModal(true); }}>
+                <div>
+                  <div className="feature-icon">🏥</div>
+                  <div className="feature-card-title">Hospital Policies Registry</div>
+                  <div className="feature-card-desc">
+                    Manage hospital SOPs, telemedicine protocols, surgical governance rules, and HIPAA directives stored in <code style={{ color: '#38bdf8' }}>policies_registry.json</code>.
+                  </div>
+                </div>
+                <button className="btn btn-secondary" style={{ fontSize: '0.78rem', width: '100%', justifyContent: 'center' }}>
+                  Manage Policy Files ({policyDocsCount}) ➔
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Page 2: Dedicated Document Stream Reader */}
+        {activePage === 'stream' && (
+          <div className="document-stream-page">
+            <div className="panel-header">
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', marginBottom: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                  <h2 style={{ fontSize: '1.1rem', fontFamily: 'var(--font-heading)', color: 'white' }}>Indexed Document Reader Stream</h2>
+                  <span className="badge badge-info">{parsedDoc?.metadata?.totalLines || 0} Lines</span>
+                  {activeDocData?.title && (
+                    <span className="badge badge-success" style={{ fontSize: '0.75rem' }}>
+                      📄 {activeDocData.title}
+                    </span>
+                  )}
+                  {activeDocData?.targetFile && (
+                    <span className="badge badge-warning" style={{ fontSize: '0.75rem' }}>
+                      {activeDocData.targetFile === 'patients' ? '📋 Patient Records File' : '🏥 Hospital Policies File'}
+                    </span>
+                  )}
+                </div>
+                <button className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '0.78rem' }} onClick={() => setShowRegistryModal(true)}>
+                  Switch Loaded Document 🔁
+                </button>
+              </div>
+
+              <div style={{ width: '100%', marginTop: '6px' }}>
+                <input 
+                  type="text" 
+                  className="search-input" 
+                  style={{ width: '100%' }}
+                  placeholder="Search verbatim lines or type line number in loaded document..." 
+                  value={docSearchQuery}
+                  onChange={(e) => setDocSearchQuery(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="document-stream" style={{ padding: '8px 0' }}>
+              {getFilteredLines().length === 0 ? (
+                <div style={{ padding: '60px 20px', textAlign: 'center', color: 'var(--text-dim)' }}>
+                  No document lines match your search filter "{docSearchQuery}".
+                </div>
+              ) : (
+                getFilteredLines().map((line) => {
+                  const isHighlighted = activeHighlightLine === line.lineNumber;
+                  return (
+                    <div 
+                      key={line.lineNumber} 
+                      id={`doc-line-${line.lineNumber}`}
+                      className={`document-line ${isHighlighted ? 'highlighted' : ''}`}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'baseline',
+                        gap: '12px',
+                        padding: '8px 18px',
+                        borderBottom: '1px solid rgba(255, 255, 255, 0.04)',
+                        cursor: 'pointer',
+                        transition: 'all 0.15s ease',
+                        background: isHighlighted ? 'rgba(6, 182, 212, 0.22)' : 'transparent',
+                        borderLeft: isHighlighted ? '4px solid var(--primary-cyan)' : '4px solid transparent'
+                      }}
+                      onClick={() => setActiveHighlightLine(line.lineNumber)}
+                    >
+                      <span 
+                        style={{
+                          fontFamily: 'var(--font-code)',
+                          fontSize: '0.8rem',
+                          fontWeight: 700,
+                          color: isHighlighted ? 'var(--primary-cyan)' : '#38bdf8',
+                          background: 'rgba(6, 182, 212, 0.12)',
+                          padding: '3px 8px',
+                          borderRadius: '4px',
+                          whiteSpace: 'nowrap',
+                          userSelect: 'none'
+                        }}
+                      >
+                        #{line.lineNumber}
+                      </span>
+                      <span style={{ fontSize: '0.88rem', color: isHighlighted ? '#ffffff' : '#cbd5e1', lineHeight: 1.6, flex: 1, wordBreak: 'break-word' }}>
+                        {line.section && (
+                          <span className="section-tag" style={{ marginRight: '8px', fontSize: '0.75rem' }}>
+                            [{line.section}]
+                          </span>
+                        )}
+                        {line.text}
+                      </span>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Page 3: Statutory Audit Matrix */}
+        {activePage === 'audit' && (
+          <div className="clean-card">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
+              <div>
+                <h2 style={{ fontSize: '1.2rem', fontFamily: 'var(--font-heading)', color: 'white' }}>
+                  Compliance & Statutory Rules Matrix
+                </h2>
+                <span style={{ fontSize: '0.84rem', color: 'var(--text-muted)' }}>
+                  Automated audit findings for active document "{activeDocData?.title || 'Loaded Document'}" with verbatim line citations
+                </span>
+              </div>
+              <button className="btn btn-secondary" style={{ padding: '8px 16px', fontSize: '0.85rem' }} onClick={() => setShowExportModal(true)}>
+                📤 Export Report
+              </button>
+            </div>
+
+            <div className="audit-matrix-grid">
+              {auditResults.map((rule) => {
+                const statusClass = rule.status === 'VIOLATION' ? 'status-violation' : rule.status === 'ADVISORY' ? 'status-advisory' : 'status-compliant';
+                const icon = rule.status === 'VIOLATION' ? '🚨' : rule.status === 'ADVISORY' ? '⚠️' : '✅';
+                return (
+                  <div key={rule.id} className="audit-card" style={{ padding: '20px' }}>
+                    <div className="audit-header">
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <span style={{ fontSize: '1.2rem' }}>{icon}</span>
+                        <strong style={{ fontSize: '1rem', color: 'var(--text-main)', fontFamily: 'var(--font-heading)' }}>{rule.title}</strong>
+                      </div>
+                      <span className={`status-badge ${statusClass}`}>{rule.status}</span>
+                    </div>
+                    <p className="findings-text" style={{ fontSize: '0.9rem', marginBottom: '12px' }}>{rule.findings}</p>
+                    
+                    {rule.citation && (
+                      <div style={{ marginBottom: '12px' }}>
+                        <button className="citation-pill" style={{ fontSize: '0.8rem', padding: '4px 10px' }} onClick={() => jumpToLine(rule.citation.startLine, rule.citation.endLine)}>
+                          📍 Jump to Verbatim Citation: Lines {rule.citation.startLine}–{rule.citation.endLine}
+                        </button>
+                        {rule.verbatimQuote && (
+                          <div className="verbatim-quote" style={{ fontSize: '0.82rem', marginTop: '8px' }}>
+                            "{rule.verbatimQuote}"
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    <div className="recommendation-box" style={{ fontSize: '0.85rem' }}>
+                      💡 <strong>Actionable Recommendation:</strong> {rule.recommendation}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Page 4: Executive Summary */}
+        {activePage === 'summary' && summaryData && (
+          <div className="clean-card">
+            <div style={{ marginBottom: '20px', background: 'rgba(6, 182, 212, 0.1)', border: '1px solid rgba(6, 182, 212, 0.3)', borderRadius: '12px', padding: '16px 20px' }}>
+              <div style={{ fontSize: '0.78rem', color: 'var(--primary-cyan)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                Executive Summary of Selected Document
+              </div>
+              <div style={{ fontSize: '1.2rem', fontWeight: 700, color: '#ffffff', fontFamily: 'var(--font-heading)', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                📄 {activeDocData?.title || 'Loaded Document'}
+                <span className="badge badge-warning" style={{ fontSize: '0.72rem' }}>
+                  {activeDocData?.targetFile === 'patients' ? '📋 Patient Records File' : '🏥 Hospital Policies File'}
+                </span>
+              </div>
+            </div>
+
+            <div className="summary-stats-grid">
+              <div className="stat-card">
+                <span className="stat-label">Document Risk Level</span>
+                <span className="stat-value" style={{ color: summaryData.stats.violations > 0 ? '#fb7185' : '#34d399', fontSize: '1.1rem' }}>
+                  {summaryData.stats.riskLevel}
+                </span>
+              </div>
+              <div className="stat-card">
+                <span className="stat-label">Violations Detected</span>
+                <span className="stat-value" style={{ color: '#fb7185' }}>{summaryData.stats.violations}</span>
+              </div>
+              <div className="stat-card">
+                <span className="stat-label">Advisories Issued</span>
+                <span className="stat-value" style={{ color: '#fbbf24' }}>{summaryData.stats.advisories}</span>
+              </div>
+              <div className="stat-card">
+                <span className="stat-label">Compliance Score</span>
+                <span className="stat-value" style={{ color: '#38bdf8' }}>{summaryData.stats.complianceScore}%</span>
+              </div>
+            </div>
+
+            <div className="summary-section">
+              <h4 style={{ color: 'var(--primary-cyan)', fontSize: '0.95rem', marginBottom: '8px', fontFamily: 'var(--font-heading)' }}>
+                Executive Overview
+              </h4>
+              <p style={{ fontSize: '0.9rem', color: '#cbd5e1', lineHeight: 1.65 }}>{summaryData.overview}</p>
+            </div>
+
+            <div className="summary-section">
+              <h4 style={{ color: 'var(--primary-cyan)', fontSize: '0.95rem', marginBottom: '12px', fontFamily: 'var(--font-heading)' }}>
+                Verifiable Compliance & Key Directives
+              </h4>
+              {summaryData.takeaways.map((takeaway, idx) => (
+                <div key={idx} style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', marginBottom: '12px', background: 'rgba(15, 23, 42, 0.4)', padding: '12px 16px', borderRadius: '8px', borderLeft: '3px solid var(--primary-cyan)' }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: '0.78rem', color: 'var(--primary-cyan)', fontWeight: 600 }}>[{takeaway.topic}]</div>
+                    <div style={{ fontSize: '0.88rem', color: '#e2e8f0', marginTop: '4px' }}>"{takeaway.text}"</div>
+                  </div>
+                  <span className="citation-pill" style={{ cursor: 'pointer', whiteSpace: 'nowrap', padding: '4px 10px' }} onClick={() => jumpToLine(takeaway.citation.startLine)}>
+                    Jump to Line {takeaway.citation.startLine}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            <div style={{ marginTop: '24px', display: 'flex', gap: '12px' }}>
+              <button className="btn btn-secondary" onClick={() => setShowExportModal(true)}>📤 Export Markdown</button>
+              <button className="btn btn-secondary" onClick={() => {
+                const json = exportToJSON(activeDocData.title, parsedDoc, summaryData, auditResults);
+                downloadFile(json, `${activeDocData.id}-audit-data.json`, 'application/json');
+              }}>📥 Download JSON</button>
+            </div>
+          </div>
+        )}
+
+        {/* Page 5: Grounded Evidence Q&A Workspace */}
+        {activePage === 'qa' && (
+          <div className="clean-card">
+            <div style={{ marginBottom: '16px', fontSize: '0.9rem', color: 'var(--primary-cyan)', fontWeight: 600 }}>
+              💬 Grounded Q&A Workspace — Querying Loaded Document: <strong>"{activeDocData?.title || 'Loaded Document'}"</strong> ({parsedDoc?.metadata?.totalLines || 0} indexed lines)
+            </div>
+
+            <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginBottom: '10px' }}>
+              Suggested Questions generated for "{activeDocData?.title || 'Loaded Document'}":
+            </div>
+
+            <div className="suggested-prompts" style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', marginBottom: '18px' }}>
+              {dynamicQuestions.map((qText, idx) => (
+                <span 
+                  key={idx} 
+                  className="prompt-chip" 
+                  style={{ cursor: 'pointer', background: 'rgba(6, 182, 212, 0.12)', border: '1px solid rgba(6, 182, 212, 0.3)', color: '#e0f2fe', padding: '8px 16px', fontSize: '0.84rem' }}
+                  onClick={() => { 
+                    setQaQuery(qText); 
+                    handleAskQuery(qText); 
+                  }}
+                >
+                  💡 {qText}
+                </span>
+              ))}
+            </div>
+
+            <div className="query-input-box" style={{ marginBottom: '20px' }}>
               <input 
                 type="text" 
                 className="search-input" 
-                placeholder="Search indexed verbatim lines in loaded document..." 
-                value={docSearchQuery}
-                onChange={(e) => setDocSearchQuery(e.target.value)}
+                style={{ padding: '12px 16px', fontSize: '0.95rem' }}
+                placeholder={`Ask any question from loaded document "${activeDocData?.title || 'document'}"...`} 
+                value={qaQuery}
+                onChange={(e) => setQaQuery(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleAskQuery(qaQuery)}
               />
+              <button className="btn btn-primary" style={{ padding: '12px 24px', fontSize: '0.95rem' }} onClick={() => handleAskQuery(qaQuery)}>Ask ✨</button>
             </div>
-          </div>
 
-          <div className="document-stream">
-            {getFilteredLines().length === 0 ? (
-              <div style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--text-dim)' }}>
-                No document lines match your search filter "{docSearchQuery}".
+            {qaResponse ? (
+              <div className="qa-response-card" style={{ padding: '24px' }}>
+                <div className="response-header">
+                  <strong style={{ fontFamily: 'var(--font-heading)', color: 'var(--primary-cyan)', fontSize: '1.05rem' }}>
+                    Grounded Answer Verification
+                  </strong>
+                  <div className="confidence-indicator" style={{ fontSize: '0.9rem' }}>
+                    <span>🛡️ {qaResponse.confidence}% Evidence Grounding</span>
+                  </div>
+                </div>
+                <div style={{ fontSize: '0.92rem', color: '#f8fafc', lineHeight: 1.65, marginBottom: '16px', whiteSpace: 'pre-wrap' }}>
+                  {qaResponse.answer}
+                </div>
+                {qaResponse.citation && (
+                  <button className="citation-pill" style={{ marginBottom: '16px', padding: '6px 12px', fontSize: '0.8rem' }} onClick={() => jumpToLine(qaResponse.citation.startLine, qaResponse.citation.endLine)}>
+                    📍 Jump to Verbatim Citation in Document Stream (Lines {qaResponse.citation.startLine}-{qaResponse.citation.endLine})
+                  </button>
+                )}
+                <div style={{ fontWeight: 600, fontSize: '0.82rem', color: 'var(--text-muted)', marginBottom: '8px' }}>
+                  Verbatim Source Excerpts from Loaded Document:
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
+                  {qaResponse.excerpts.map((e, idx) => (
+                    <div key={idx} style={{ background: 'rgba(10, 15, 26, 0.7)', padding: '10px 14px', borderLeft: '3px solid var(--primary-cyan)', fontFamily: 'var(--font-code)', fontSize: '0.8rem', color: '#94a3b8' }}>
+                      Line {e.lineNumber} ({e.section}): "{e.text}"
+                    </div>
+                  ))}
+                </div>
+                <div style={{ fontWeight: 600, fontSize: '0.82rem', color: 'var(--text-muted)', marginBottom: '6px' }}>
+                  Verification Chain of Thought:
+                </div>
+                <ul className="reasoning-list" style={{ fontSize: '0.84rem' }}>
+                  {qaResponse.reasoning.map((r, idx) => <li key={idx} style={{ marginBottom: '4px' }}>{r}</li>)}
+                </ul>
               </div>
             ) : (
-              getFilteredLines().map((line) => {
-                const isHighlighted = activeHighlightLine === line.lineNumber;
-                return (
-                  <div 
-                    key={line.lineNumber} 
-                    id={`doc-line-${line.lineNumber}`}
-                    className={`document-line ${isHighlighted ? 'highlighted' : ''}`}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'baseline',
-                      gap: '8px',
-                      padding: '6px 12px',
-                      borderBottom: '1px solid rgba(255, 255, 255, 0.04)',
-                      cursor: 'pointer',
-                      transition: 'all 0.15s ease',
-                      background: isHighlighted ? 'rgba(6, 182, 212, 0.22)' : 'transparent',
-                      borderLeft: isHighlighted ? '4px solid var(--primary-cyan)' : '4px solid transparent'
-                    }}
-                    onClick={() => setActiveHighlightLine(line.lineNumber)}
-                  >
-                    <span 
-                      style={{
-                        fontFamily: 'var(--font-code)',
-                        fontSize: '0.78rem',
-                        fontWeight: 700,
-                        color: isHighlighted ? 'var(--primary-cyan)' : '#38bdf8',
-                        background: 'rgba(6, 182, 212, 0.12)',
-                        padding: '2px 6px',
-                        borderRadius: '4px',
-                        whiteSpace: 'nowrap',
-                        userSelect: 'none'
-                      }}
-                    >
-                      #{line.lineNumber}
-                    </span>
-                    <span style={{ fontSize: '0.84rem', color: isHighlighted ? '#ffffff' : '#cbd5e1', lineHeight: 1.5, flex: 1, wordBreak: 'break-word' }}>
-                      {line.section && (
-                        <span className="section-tag" style={{ marginRight: '6px', fontSize: '0.72rem' }}>
-                          [{line.section}]
-                        </span>
-                      )}
-                      {line.text}
-                    </span>
-                  </div>
-                );
-              })
-            )}
-          </div>
-        </div>
-
-        {/* Right Panel: Healio Functional Module Suite */}
-        <div className="right-panel">
-          <div className="panel-tabs">
-            <button className={`tab-btn ${activeTab === 'home' ? 'active' : ''}`} onClick={() => setActiveTab('home')}>
-              🏠 Home
-            </button>
-            <button className={`tab-btn ${activeTab === 'audit' ? 'active' : ''}`} onClick={() => setActiveTab('audit')}>
-              🛡️ Audit Matrix ({auditResults.length})
-            </button>
-            <button className={`tab-btn ${activeTab === 'summary' ? 'active' : ''}`} onClick={() => setActiveTab('summary')}>
-              📊 Executive Summary
-            </button>
-            <button className={`tab-btn ${activeTab === 'qa' ? 'active' : ''}`} onClick={() => setActiveTab('qa')}>
-              💬 Grounded Q&A ({dynamicQuestions.length})
-            </button>
-            <button className={`tab-btn ${activeTab === 'patients_view' ? 'active' : ''}`} onClick={() => { setRegistryFileFilter('patients'); setShowRegistryModal(true); }}>
-              📋 Patient Records ({patientDocsCount})
-            </button>
-            <button className={`tab-btn ${activeTab === 'policies_view' ? 'active' : ''}`} onClick={() => { setRegistryFileFilter('policies'); setShowRegistryModal(true); }}>
-              🏥 Hospital Policies ({policyDocsCount})
-            </button>
-          </div>
-
-          <div className="tab-content">
-            {/* Healio Home Landing View */}
-            {activeTab === 'home' && (
-              <div>
-                {/* Hero Section */}
-                <div className="healio-hero">
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-                    <span className="badge badge-info" style={{ fontSize: '0.75rem', padding: '4px 10px' }}>✨ Healio Clinical AI Platform v2.0</span>
-                    {userName && (
-                      <span className="badge badge-success" style={{ fontSize: '0.75rem', padding: '4px 10px' }}>
-                        👤 Logged in as: {userName}
-                      </span>
-                    )}
-                  </div>
-                  <h1 className="healio-title">Healio</h1>
-                  <div className="healio-subtitle">Next-Generation Verifiable Clinical Intelligence & Medical Governance Studio</div>
-                  <p className="healio-description">
-                    Healio is an advanced clinical audit and governance platform designed for medical boards, hospital administrators, healthcare providers, and clinical auditors. It parses multi-format medical records and hospital policies (PDF, Word, Text, RTF, CSV, JSON, HTML) into line-indexed statutory audit matrices, grounded evidence Q&A engines, and dual-file document registries with 100% verifiable source line citations.
-                  </p>
-
-                  <div style={{ display: 'flex', gap: '12px', marginTop: '20px', flexWrap: 'wrap' }}>
-                    <button className="btn btn-primary" onClick={() => setActiveTab('audit')}>
-                      🛡️ Launch Statutory Audit Matrix
-                    </button>
-                    <button className="btn btn-secondary" onClick={() => setActiveTab('qa')}>
-                      💬 Launch Grounded Q&A Assistant
-                    </button>
-                    <button className="btn btn-secondary" onClick={() => setShowLogModal(true)}>
-                      📜 View User Activity Log
-                    </button>
-                  </div>
-                </div>
-
-                {/* Core Functions Grid */}
-                <div style={{ marginBottom: '12px' }}>
-                  <h3 style={{ fontFamily: 'var(--font-heading)', color: 'white', fontSize: '1.1rem' }}>
-                    Healio Core Functions & Capabilities
-                  </h3>
-                  <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                    Select any function card below to perform specific medical governance and clinical analysis workflows.
-                  </p>
-                </div>
-
-                <div className="feature-cards-grid">
-                  <div className="feature-card" onClick={() => setActiveTab('audit')}>
-                    <div>
-                      <div className="feature-icon">🛡️</div>
-                      <div className="feature-card-title">Statutory Audit Matrix</div>
-                      <div className="feature-card-desc">
-                        Automated compliance scanning against State Medical Board rules, PA supervision ratios, PDMP lookups, and HIPAA rules with line citations.
-                      </div>
-                    </div>
-                    <button className="btn btn-primary" style={{ fontSize: '0.78rem', width: '100%', justifyContent: 'center' }}>
-                      Open Audit Matrix ➔
-                    </button>
-                  </div>
-
-                  <div className="feature-card" onClick={() => setActiveTab('qa')}>
-                    <div>
-                      <div className="feature-icon">💬</div>
-                      <div className="feature-card-title">Grounded Evidence Q&A</div>
-                      <div className="feature-card-desc">
-                        Ask any clinical, operational, or policy questions answered strictly using verbatim source lines from your loaded document with jump links.
-                      </div>
-                    </div>
-                    <button className="btn btn-primary" style={{ fontSize: '0.78rem', width: '100%', justifyContent: 'center' }}>
-                      Open Grounded Q&A ➔
-                    </button>
-                  </div>
-
-                  <div className="feature-card" onClick={() => setActiveTab('summary')}>
-                    <div>
-                      <div className="feature-icon">📊</div>
-                      <div className="feature-card-title">Executive Summary</div>
-                      <div className="feature-card-desc">
-                        Structured overview of the loaded document, compliance scores, risk level breakdowns, and verifiable line-cited takeaways.
-                      </div>
-                    </div>
-                    <button className="btn btn-primary" style={{ fontSize: '0.78rem', width: '100%', justifyContent: 'center' }}>
-                      View Executive Summary ➔
-                    </button>
-                  </div>
-
-                  <div className="feature-card" onClick={() => { setRegistryFileFilter('patients'); setShowRegistryModal(true); }}>
-                    <div>
-                      <div className="feature-icon">📋</div>
-                      <div className="feature-card-title">Patient Records File</div>
-                      <div className="feature-card-desc">
-                        Manage patient clinical notes, EHR extracts, case hearing transcripts, and intake files stored in <code style={{ color: '#38bdf8' }}>patients_registry.json</code>.
-                      </div>
-                    </div>
-                    <button className="btn btn-secondary" style={{ fontSize: '0.78rem', width: '100%', justifyContent: 'center' }}>
-                      Manage Patient Records ({patientDocsCount}) ➔
-                    </button>
-                  </div>
-
-                  <div className="feature-card" onClick={() => { setRegistryFileFilter('policies'); setShowRegistryModal(true); }}>
-                    <div>
-                      <div className="feature-icon">🏥</div>
-                      <div className="feature-card-title">Hospital Policies File</div>
-                      <div className="feature-card-desc">
-                        Manage hospital SOPs, telemedicine protocols, surgical governance rules, and HIPAA directives stored in <code style={{ color: '#38bdf8' }}>policies_registry.json</code>.
-                      </div>
-                    </div>
-                    <button className="btn btn-secondary" style={{ fontSize: '0.78rem', width: '100%', justifyContent: 'center' }}>
-                      Manage Hospital Policies ({policyDocsCount}) ➔
-                    </button>
-                  </div>
-
-                  <div className="feature-card" onClick={() => setShowLogModal(true)}>
-                    <div>
-                      <div className="feature-icon">📜</div>
-                      <div className="feature-card-title">User Audit & Activity Log</div>
-                      <div className="feature-card-desc">
-                        View active user session details for <strong style={{ color: 'var(--primary-cyan)' }}>{userName || 'User'}</strong> and full audit trail of documents loaded, inserted, and queried.
-                      </div>
-                    </div>
-                    <button className="btn btn-secondary" style={{ fontSize: '0.78rem', width: '100%', justifyContent: 'center' }}>
-                      View User Log ➔
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {activeTab === 'audit' && (
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                  <div>
-                    <h3 style={{ fontSize: '1rem', fontFamily: 'var(--font-heading)', color: 'var(--text-main)' }}>
-                      Compliance & Statutory Rules Matrix
-                    </h3>
-                    <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                      Automated audit findings for "{activeDocData?.title || 'Loaded Document'}" with verbatim line citations
-                    </span>
-                  </div>
-                  <button className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '0.78rem' }} onClick={() => setShowExportModal(true)}>
-                    📤 Export Report
-                  </button>
-                </div>
-
-                <div className="audit-matrix-grid">
-                  {auditResults.map((rule) => {
-                    const statusClass = rule.status === 'VIOLATION' ? 'status-violation' : rule.status === 'ADVISORY' ? 'status-advisory' : 'status-compliant';
-                    const icon = rule.status === 'VIOLATION' ? '🚨' : rule.status === 'ADVISORY' ? '⚠️' : '✅';
-                    return (
-                      <div key={rule.id} className="audit-card">
-                        <div className="audit-header">
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <span>{icon}</span>
-                            <strong style={{ fontSize: '0.9rem', color: 'var(--text-main)' }}>{rule.title}</strong>
-                          </div>
-                          <span className={`status-badge ${statusClass}`}>{rule.status}</span>
-                        </div>
-                        <p className="findings-text">{rule.findings}</p>
-                        
-                        {rule.citation && (
-                          <div style={{ marginBottom: '10px' }}>
-                            <button className="citation-pill" onClick={() => jumpToLine(rule.citation.startLine, rule.citation.endLine)}>
-                              📍 Verbatim Citation: Lines {rule.citation.startLine}–{rule.citation.endLine}
-                            </button>
-                            {rule.verbatimQuote && (
-                              <div className="verbatim-quote">
-                                "{rule.verbatimQuote}"
-                              </div>
-                            )}
-                          </div>
-                        )}
-
-                        <div className="recommendation-box">
-                          💡 <strong>Actionable Fix:</strong> {rule.recommendation}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {activeTab === 'summary' && summaryData && (
-              <div>
-                {/* Active Selected Document Banner */}
-                <div style={{ marginBottom: '16px', background: 'rgba(6, 182, 212, 0.1)', border: '1px solid rgba(6, 182, 212, 0.3)', borderRadius: '8px', padding: '12px 16px' }}>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--primary-cyan)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                    Executive Summary of Selected Document
-                  </div>
-                  <div style={{ fontSize: '1.05rem', fontWeight: 700, color: '#ffffff', fontFamily: 'var(--font-heading)', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    📄 {activeDocData?.title || 'Loaded Document'}
-                    <span className="badge badge-warning" style={{ fontSize: '0.68rem' }}>
-                      {activeDocData?.targetFile === 'patients' ? '📋 Patient Records File' : '🏥 Hospital Policies File'}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="summary-stats-grid">
-                  <div className="stat-card">
-                    <span className="stat-label">Document Risk Level</span>
-                    <span className="stat-value" style={{ color: summaryData.stats.violations > 0 ? '#fb7185' : '#34d399', fontSize: '1.05rem' }}>
-                      {summaryData.stats.riskLevel}
-                    </span>
-                  </div>
-                  <div className="stat-card">
-                    <span className="stat-label">Violations Detected</span>
-                    <span className="stat-value" style={{ color: '#fb7185' }}>{summaryData.stats.violations}</span>
-                  </div>
-                  <div className="stat-card">
-                    <span className="stat-label">Advisories Issued</span>
-                    <span className="stat-value" style={{ color: '#fbbf24' }}>{summaryData.stats.advisories}</span>
-                  </div>
-                  <div className="stat-card">
-                    <span className="stat-label">Compliance Score</span>
-                    <span className="stat-value" style={{ color: '#38bdf8' }}>{summaryData.stats.complianceScore}%</span>
-                  </div>
-                </div>
-
-                <div className="summary-section">
-                  <h4 style={{ color: 'var(--primary-cyan)', fontSize: '0.9rem', marginBottom: '8px', fontFamily: 'var(--font-heading)' }}>
-                    Executive Overview
-                  </h4>
-                  <p style={{ fontSize: '0.86rem', color: '#cbd5e1', lineHeight: 1.6 }}>{summaryData.overview}</p>
-                </div>
-
-                <div className="summary-section">
-                  <h4 style={{ color: 'var(--primary-cyan)', fontSize: '0.9rem', marginBottom: '8px', fontFamily: 'var(--font-heading)' }}>
-                    Verifiable Compliance & Key Directives
-                  </h4>
-                  {summaryData.takeaways.map((takeaway, idx) => (
-                    <div key={idx} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', marginBottom: '10px', background: 'rgba(15, 23, 42, 0.4)', padding: '8px 12px', borderRadius: '6px', borderLeft: '3px solid var(--primary-cyan)' }}>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: '0.74rem', color: 'var(--primary-cyan)', fontWeight: 600 }}>[{takeaway.topic}]</div>
-                        <div style={{ fontSize: '0.84rem', color: '#e2e8f0', marginTop: '2px' }}>"{takeaway.text}"</div>
-                      </div>
-                      <span className="citation-pill" style={{ cursor: 'pointer', whiteSpace: 'nowrap' }} onClick={() => jumpToLine(takeaway.citation.startLine)}>
-                        Line {takeaway.citation.startLine}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-
-                <div style={{ marginTop: '20px', display: 'flex', gap: '10px' }}>
-                  <button className="btn btn-secondary" onClick={() => setShowExportModal(true)}>📤 Export Markdown</button>
-                  <button className="btn btn-secondary" onClick={() => {
-                    const json = exportToJSON(activeDocData.title, parsedDoc, summaryData, auditResults);
-                    downloadFile(json, `${activeDocData.id}-audit-data.json`, 'application/json');
-                  }}>📥 Download JSON</button>
-                </div>
-              </div>
-            )}
-
-            {activeTab === 'qa' && (
-              <div className="qa-container">
-                <div style={{ marginBottom: '12px', fontSize: '0.82rem', color: 'var(--primary-cyan)', fontWeight: 500 }}>
-                  💬 Document Q&A Assistant — Querying Loaded Document: <strong>"{activeDocData?.title || 'Loaded Document'}"</strong> ({parsedDoc?.metadata?.totalLines || 0} indexed lines)
-                </div>
-
-                <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '8px' }}>
-                  Questions relevant to "{activeDocData?.title || 'Loaded Document'}":
-                </div>
-
-                <div className="suggested-prompts" style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '14px' }}>
-                  {dynamicQuestions.map((qText, idx) => (
-                    <span 
-                      key={idx} 
-                      className="prompt-chip" 
-                      style={{ cursor: 'pointer', background: 'rgba(6, 182, 212, 0.12)', border: '1px solid rgba(6, 182, 212, 0.3)', color: '#e0f2fe' }}
-                      onClick={() => { 
-                        setQaQuery(qText); 
-                        handleAskQuery(qText); 
-                      }}
-                    >
-                      💡 {qText}
-                    </span>
-                  ))}
-                </div>
-
-                <div className="query-input-box">
-                  <input 
-                    type="text" 
-                    className="search-input" 
-                    placeholder={`Ask any question from loaded document "${activeDocData?.title || 'document'}"...`} 
-                    value={qaQuery}
-                    onChange={(e) => setQaQuery(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleAskQuery(qaQuery)}
-                  />
-                  <button className="btn btn-primary" onClick={() => handleAskQuery(qaQuery)}>Ask ✨</button>
-                </div>
-
-                {qaResponse ? (
-                  <div className="qa-response-card">
-                    <div className="response-header">
-                      <strong style={{ fontFamily: 'var(--font-heading)', color: 'var(--primary-cyan)', fontSize: '0.95rem' }}>
-                        Grounded Answer Verification
-                      </strong>
-                      <div className="confidence-indicator">
-                        <span>🛡️ {qaResponse.confidence}% Evidence Grounding</span>
-                      </div>
-                    </div>
-                    <div style={{ fontSize: '0.88rem', color: '#f8fafc', lineHeight: 1.6, marginBottom: '14px', whiteSpace: 'pre-wrap' }}>
-                      {qaResponse.answer}
-                    </div>
-                    {qaResponse.citation && (
-                      <button className="citation-pill" style={{ marginBottom: '14px' }} onClick={() => jumpToLine(qaResponse.citation.startLine, qaResponse.citation.endLine)}>
-                        📍 Jump to Citation (Lines {qaResponse.citation.startLine}-{qaResponse.citation.endLine})
-                      </button>
-                    )}
-                    <div style={{ fontWeight: 600, fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '6px' }}>
-                      Verbatim Source Excerpts from Loaded Document:
-                    </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '14px' }}>
-                      {qaResponse.excerpts.map((e, idx) => (
-                        <div key={idx} style={{ background: 'rgba(10, 15, 26, 0.7)', padding: '8px 12px', borderLeft: '2px solid var(--primary-cyan)', fontFamily: 'var(--font-code)', fontSize: '0.76rem', color: '#94a3b8' }}>
-                          Line {e.lineNumber} ({e.section}): "{e.text}"
-                        </div>
-                      ))}
-                    </div>
-                    <div style={{ fontWeight: 600, fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '4px' }}>
-                      Verification Chain of Thought:
-                    </div>
-                    <ul className="reasoning-list">
-                      {qaResponse.reasoning.map((r, idx) => <li key={idx}>{r}</li>)}
-                    </ul>
-                  </div>
-                ) : (
-                  <div style={{ textAlign: 'center', color: 'var(--text-dim)', padding: '40px 20px', fontSize: '0.88rem' }}>
-                    💬 Select any of the loaded document questions above or type a custom query to get grounded answers with verbatim line citations.
-                  </div>
-                )}
+              <div style={{ textAlign: 'center', color: 'var(--text-dim)', padding: '60px 20px', fontSize: '0.92rem' }}>
+                💬 Select any of the loaded document questions above or type a custom query to get grounded answers with verbatim line citations.
               </div>
             )}
           </div>
-        </div>
-      </div>
+        )}
+      </main>
 
       {/* Mandatory User Name Entry Modal */}
       {showNameModal && (
