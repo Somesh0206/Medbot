@@ -1,0 +1,10 @@
+# Cline & AI Agent Rules for Healio Platform
+
+- **Project**: Healio Clinical AI Platform & Governance Studio
+- **Framework**: Next.js 16 (App Router, Turbopack, React 19)
+- **Rules**:
+  1. Always run `npm run build` to verify code correctness before committing.
+  2. Maintain 100% verbatim line citations for clinical audit findings and Q&A responses.
+  3. Ensure browser storage calls (`localStorage`) are guarded against SSR window undefined errors.
+  4. Protect dual-file document registry schemas (`patients_registry.json` and `policies_registry.json`).
+  5. Ensure all agent workflows and custom skills are documented in `AGENTS_AND_SKILLS.md`.
