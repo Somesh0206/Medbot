@@ -45,6 +45,7 @@ export default function HealioApp() {
   const [userRole, setUserRole] = useState('staff'); // 'staff' or 'patient'
   const [showNameModal, setShowNameModal] = useState(true);
   const [nameInput, setNameInput] = useState('');
+  const [passwordInput, setPasswordInput] = useState('');
   const [showLogModal, setShowLogModal] = useState(false);
   const [activityLogs, setActivityLogs] = useState([]);
 
@@ -81,6 +82,7 @@ export default function HealioApp() {
       
       // Reset active user session to require fresh name login on reload
       setUserName('');
+      setPasswordInput('');
       setShowNameModal(true);
     }
 
@@ -128,6 +130,15 @@ export default function HealioApp() {
       alert('Please enter your name to log in to Healio.');
       return;
     }
+
+    // Staff Password Verification: Hospital Staff MUST enter password 'admin'
+    if (userRole === 'staff') {
+      if (passwordInput.trim() !== 'admin') {
+        alert('❌ Incorrect Hospital Staff Password! Please enter valid staff credentials (admin).');
+        return;
+      }
+    }
+
     setUserName(trimmed);
     setShowNameModal(false);
     
@@ -151,8 +162,14 @@ export default function HealioApp() {
   };
 
   const handleSwitchRole = () => {
+    // Only allow Hospital Staff to switch roles
+    if (userRole !== 'staff') {
+      alert('🔒 Patients are not permitted to switch roles. Please re-authenticate as Hospital Staff upon fresh login.');
+      return;
+    }
     setShowLogModal(false);
     setNameInput(userName);
+    setPasswordInput('');
     setShowNameModal(true);
   };
 
@@ -852,13 +869,33 @@ export default function HealioApp() {
             <input 
               type="text" 
               className="search-input" 
-              style={{ width: '100%', padding: '12px', fontSize: '1rem', textAlign: 'center', marginBottom: '16px' }} 
+              style={{ width: '100%', padding: '12px', fontSize: '1rem', textAlign: 'center', marginBottom: userRole === 'staff' ? '10px' : '16px' }} 
               placeholder={userRole === 'staff' ? 'e.g. Dr. Somesh / Auditor Jane Doe' : 'e.g. Patient John Smith'} 
               value={nameInput}
               onChange={e => setNameInput(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && handleSaveUserName()}
+              onKeyDown={e => e.key === 'Enter' && (userRole === 'staff' ? document.getElementById('staff-pwd-input')?.focus() : handleSaveUserName())}
               autoFocus
             />
+
+            {/* Hospital Staff Password Authentication */}
+            {userRole === 'staff' && (
+              <div style={{ marginBottom: '16px' }}>
+                <input 
+                  id="staff-pwd-input"
+                  type="password" 
+                  className="search-input" 
+                  style={{ width: '100%', padding: '12px', fontSize: '1rem', textAlign: 'center', borderColor: 'var(--primary-cyan)' }} 
+                  placeholder="🔑 Enter Staff Password (admin)" 
+                  value={passwordInput}
+                  onChange={e => setPasswordInput(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && handleSaveUserName()}
+                />
+                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                  🔒 Hospital Staff access requires administrator authentication password (<code>admin</code>).
+                </div>
+              </div>
+            )}
+
             <button className="btn btn-primary" style={{ width: '100%', justifyContent: 'center', padding: '12px', fontSize: '0.95rem' }} onClick={handleSaveUserName}>
               Login as {userRole === 'staff' ? '🏥 Hospital Staff' : '👤 Patient'} ➔
             </button>
@@ -889,9 +926,11 @@ export default function HealioApp() {
                 <button className="btn btn-secondary" style={{ fontSize: '0.78rem' }} onClick={handleChangeUserName}>
                   ✏️ Change Name
                 </button>
-                <button className="btn btn-primary" style={{ fontSize: '0.78rem' }} onClick={handleSwitchRole}>
-                  🔄 Switch Role & Login
-                </button>
+                {userRole === 'staff' && (
+                  <button className="btn btn-primary" style={{ fontSize: '0.78rem' }} onClick={handleSwitchRole}>
+                    🔄 Switch Role & Login
+                  </button>
+                )}
               </div>
             </div>
 
@@ -903,11 +942,8 @@ export default function HealioApp() {
                   Access Restricted to Hospital Staff
                 </h4>
                 <p style={{ fontSize: '0.85rem', color: '#cbd5e1', maxWidth: '480px', margin: '0 auto 16px auto' }}>
-                  Only authorized <strong>🏥 Hospital Staff & Governance Auditors</strong> are permitted to inspect full user session logs and activity audit trails.
+                  Only authorized <strong>🏥 Hospital Staff & Governance Auditors</strong> are permitted to inspect full user session logs and activity audit trails. Patients are not allowed to switch roles.
                 </p>
-                <button className="btn btn-primary" style={{ fontSize: '0.82rem' }} onClick={handleSwitchRole}>
-                  Switch Role to Hospital Staff ➔
-                </button>
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '350px', overflowY: 'auto', paddingRight: '4px' }}>
