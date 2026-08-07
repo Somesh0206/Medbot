@@ -5,13 +5,11 @@ import { parseDocumentText } from '@/lib/parser';
 import { runComplianceAudit } from '@/lib/auditEngine';
 import { generateVerifiableSummary } from '@/lib/summaryEngine';
 import { answerGroundedQuery, generateDocumentQuestions } from '@/lib/qaEngine';
-import { exportToMarkdown, exportToJSON, downloadFile } from '@/lib/exportUtils';
+import { exportToMarkdown, downloadFile } from '@/lib/exportUtils';
 import {
   getStoredDocuments,
   saveDocumentToRegistry,
-  deleteDocumentFromRegistry,
-  exportRegistryFileJSON,
-  importRegistryFileJSON
+  deleteDocumentFromRegistry
 } from '@/lib/storageEngine';
 import { extractTextFromFile } from '@/lib/fileExtractor';
 
@@ -51,7 +49,6 @@ export default function HealioApp() {
   const [activityLogs, setActivityLogs] = useState([]);
 
   const fileInputRef = useRef(null);
-  const importFileInputRef = useRef(null);
 
   // Helper to append a user activity log entry
   const addLogEntry = (action, details, user = userName, role = userRole) => {
@@ -274,20 +271,6 @@ export default function HealioApp() {
     }
   };
 
-  const handleImportRegistryFile = (e, targetFile) => {
-    const file = e.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        const count = importRegistryFileJSON(ev.target.result, targetFile);
-        alert(`Successfully imported ${count} documents into ${targetFile === 'patients' ? 'Patient Records File' : 'Hospital Policies File'}!`);
-        addLogEntry('Imported Registry JSON', `Restored ${count} files into ${targetFile} registry`);
-        reloadAllDocs();
-      };
-      reader.readAsText(file);
-    }
-  };
-
   const getFilteredLines = () => {
     if (!parsedDoc?.lines) return [];
     const term = docSearchQuery.toLowerCase().trim();
@@ -330,8 +313,13 @@ export default function HealioApp() {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <button className="btn btn-secondary" style={{ borderColor: userRole === 'staff' ? 'var(--primary-cyan)' : 'var(--accent-emerald)', color: 'white' }} onClick={() => setShowLogModal(true)}>
-            👤 {userRole === 'staff' ? '🏥 Staff' : '👤 Patient'}: <strong style={{ color: userRole === 'staff' ? 'var(--primary-cyan)' : '#34d399', marginLeft: '2px' }}>{userName || 'Guest'}</strong>
+          {/* User Identity & Log Button: Only Hospital Staff can open full user logs */}
+          <button 
+            className="btn btn-secondary" 
+            style={{ borderColor: userRole === 'staff' ? 'var(--primary-cyan)' : 'var(--accent-emerald)', color: 'white' }} 
+            onClick={() => setShowLogModal(true)}
+          >
+            👤 {userRole === 'staff' ? '🏥 Staff Log' : '👤 Patient'}: <strong style={{ color: userRole === 'staff' ? 'var(--primary-cyan)' : '#34d399', marginLeft: '2px' }}>{userName || 'Guest'}</strong>
           </button>
 
           <button className="btn btn-secondary" onClick={() => setShowRegistryModal(true)}>
@@ -382,7 +370,7 @@ export default function HealioApp() {
               <h1 className="healio-title">Healio</h1>
               <div className="healio-subtitle">Next-Generation Verifiable Clinical Intelligence & Medical Governance Studio</div>
               <p className="healio-description">
-                Healio is an advanced clinical audit and governance platform designed for medical boards, hospital administrators, healthcare providers, and patients. It parses multi-format medical records and hospital policies (PDF, Word, Text, RTF, CSV, JSON, HTML) into line-indexed statutory audit matrices, grounded evidence Q&A engines, and dual-file document registries with 100% verifiable source line citations.
+                Healio is an advanced clinical audit and governance platform designed for medical boards, hospital administrators, healthcare providers, and patients. It parses multi-format medical records and hospital policies (PDF, Word, Text, RTF, CSV, HTML) into line-indexed statutory audit matrices, grounded evidence Q&A engines, and dual-file document registries with 100% verifiable source line citations.
               </p>
 
               <div style={{ display: 'flex', gap: '12px', marginTop: '20px', flexWrap: 'wrap' }}>
@@ -492,7 +480,7 @@ export default function HealioApp() {
                   <div className="feature-icon">📋</div>
                   <div className="feature-card-title">Patient Records Registry</div>
                   <div className="feature-card-desc">
-                    Manage patient clinical notes, EHR extracts, case hearing transcripts, and intake files stored in <code style={{ color: '#38bdf8' }}>patients_registry.json</code>.
+                    Manage patient clinical notes, EHR extracts, case hearing transcripts, and intake files stored in Patient Medical Records Database.
                   </div>
                 </div>
                 <button className="btn btn-secondary" style={{ fontSize: '0.78rem', width: '100%', justifyContent: 'center' }}>
@@ -505,7 +493,7 @@ export default function HealioApp() {
                   <div className="feature-icon">🏥</div>
                   <div className="feature-card-title">Hospital Policies Registry</div>
                   <div className="feature-card-desc">
-                    Manage hospital SOPs, telemedicine protocols, surgical governance rules, and HIPAA directives stored in <code style={{ color: '#38bdf8' }}>policies_registry.json</code>.
+                    Manage hospital SOPs, telemedicine protocols, surgical governance rules, and HIPAA directives stored in Hospital Policies Registry.
                   </div>
                 </div>
                 <button className="btn btn-secondary" style={{ fontSize: '0.78rem', width: '100%', justifyContent: 'center' }}>
@@ -725,11 +713,7 @@ export default function HealioApp() {
             </div>
 
             <div style={{ marginTop: '24px', display: 'flex', gap: '12px' }}>
-              <button className="btn btn-secondary" onClick={() => setShowExportModal(true)}>📤 Export Markdown</button>
-              <button className="btn btn-secondary" onClick={() => {
-                const json = exportToJSON(activeDocData.title, parsedDoc, summaryData, auditResults);
-                downloadFile(json, `${activeDocData.id}-audit-data.json`, 'application/json');
-              }}>📥 Download JSON</button>
+              <button className="btn btn-secondary" onClick={() => setShowExportModal(true)}>📤 Export Markdown Report</button>
             </div>
           </div>
         )}
@@ -882,7 +866,7 @@ export default function HealioApp() {
         </div>
       )}
 
-      {/* User Activity Log Modal */}
+      {/* User Activity Log Modal — RESTRICTED TO HOSPITAL STAFF */}
       {showLogModal && (
         <div className="modal-overlay" onClick={() => setShowLogModal(false)}>
           <div className="modal-content" style={{ width: '750px', maxWidth: '95vw' }} onClick={e => e.stopPropagation()}>
@@ -911,34 +895,52 @@ export default function HealioApp() {
               </div>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '350px', overflowY: 'auto', paddingRight: '4px' }}>
-              {activityLogs.length === 0 ? (
-                <div style={{ padding: '30px', textAlign: 'center', color: 'var(--text-muted)' }}>No user activity recorded yet in this session.</div>
-              ) : (
-                activityLogs.map((log) => (
-                  <div key={log.id} style={{ background: 'rgba(15, 23, 42, 0.6)', border: '1px solid var(--border-card)', borderRadius: '8px', padding: '10px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '2px' }}>
-                        <span style={{ fontWeight: 700, color: 'var(--primary-cyan)', fontSize: '0.85rem' }}>{log.action}</span>
-                        <span className="badge badge-info" style={{ fontSize: '0.68rem' }}>👤 {log.user} ({log.role || 'Staff'})</span>
+            {/* Access Control Enforcement: Patients CANNOT view other users' logs */}
+            {userRole !== 'staff' ? (
+              <div style={{ background: 'rgba(245, 158, 11, 0.1)', border: '1px solid rgba(245, 158, 11, 0.3)', borderRadius: '10px', padding: '30px', textAlign: 'center', margin: '20px 0' }}>
+                <div style={{ fontSize: '2rem', marginBottom: '8px' }}>🔒</div>
+                <h4 style={{ fontFamily: 'var(--font-heading)', color: 'var(--accent-amber)', fontSize: '1.1rem', marginBottom: '6px' }}>
+                  Access Restricted to Hospital Staff
+                </h4>
+                <p style={{ fontSize: '0.85rem', color: '#cbd5e1', maxWidth: '480px', margin: '0 auto 16px auto' }}>
+                  Only authorized <strong>🏥 Hospital Staff & Governance Auditors</strong> are permitted to inspect full user session logs and activity audit trails.
+                </p>
+                <button className="btn btn-primary" style={{ fontSize: '0.82rem' }} onClick={handleSwitchRole}>
+                  Switch Role to Hospital Staff ➔
+                </button>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '350px', overflowY: 'auto', paddingRight: '4px' }}>
+                {activityLogs.length === 0 ? (
+                  <div style={{ padding: '30px', textAlign: 'center', color: 'var(--text-muted)' }}>No user activity recorded yet in this session.</div>
+                ) : (
+                  activityLogs.map((log) => (
+                    <div key={log.id} style={{ background: 'rgba(15, 23, 42, 0.6)', border: '1px solid var(--border-card)', borderRadius: '8px', padding: '10px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '2px' }}>
+                          <span style={{ fontWeight: 700, color: 'var(--primary-cyan)', fontSize: '0.85rem' }}>{log.action}</span>
+                          <span className="badge badge-info" style={{ fontSize: '0.68rem' }}>👤 {log.user} ({log.role || 'Staff'})</span>
+                        </div>
+                        <div style={{ fontSize: '0.8rem', color: '#cbd5e1' }}>{log.details}</div>
                       </div>
-                      <div style={{ fontSize: '0.8rem', color: '#cbd5e1' }}>{log.details}</div>
+                      <span style={{ fontSize: '0.72rem', color: 'var(--text-dim)', whiteSpace: 'nowrap' }}>
+                        {new Date(log.timestamp).toLocaleTimeString()}
+                      </span>
                     </div>
-                    <span style={{ fontSize: '0.72rem', color: 'var(--text-dim)', whiteSpace: 'nowrap' }}>
-                      {new Date(log.timestamp).toLocaleTimeString()}
-                    </span>
-                  </div>
-                ))
-              )}
-            </div>
+                  ))
+                )}
+              </div>
+            )}
 
             <div style={{ marginTop: '16px', display: 'flex', justifyContent: 'space-between' }}>
-              <button className="btn btn-secondary" style={{ fontSize: '0.78rem', color: '#fb7185' }} onClick={() => {
-                if (confirm('Clear all session user logs?')) {
-                  setActivityLogs([]);
-                  localStorage.removeItem('healio_user_logs');
-                }
-              }}>🗑️ Clear Activity Logs</button>
+              {userRole === 'staff' ? (
+                <button className="btn btn-secondary" style={{ fontSize: '0.78rem', color: '#fb7185' }} onClick={() => {
+                  if (confirm('Clear all session user logs?')) {
+                    setActivityLogs([]);
+                    localStorage.removeItem('healio_user_logs');
+                  }
+                }}>🗑️ Clear Activity Logs</button>
+              ) : <div />}
               <button className="btn btn-primary" onClick={() => setShowLogModal(false)}>Close Log</button>
             </div>
           </div>
@@ -957,8 +959,8 @@ export default function HealioApp() {
               <div>
                 <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Target Storage Registry File</label>
                 <select className="search-input" style={{ width: '100%', borderColor: 'var(--primary-cyan)' }} value={customTargetFile} onChange={e => setCustomTargetFile(e.target.value)}>
-                  <option value="patients">📋 Patient Records File (patients_registry.json)</option>
-                  <option value="policies">🏥 Hospital Policies File (policies_registry.json)</option>
+                  <option value="patients">📋 Patient Records File</option>
+                  <option value="policies">🏥 Hospital Policies File</option>
                 </select>
               </div>
               <div>
@@ -977,13 +979,13 @@ export default function HealioApp() {
               </div>
               <div>
                 <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>
-                  Upload Document File (PDF, Word DOCX/DOC, Text, Markdown, CSV, JSON, HTML)
+                  Upload Document File (PDF, Word DOCX/DOC, Text, Markdown, CSV, HTML)
                 </label>
                 <input 
                   type="file" 
                   className="search-input" 
                   style={{ width: '100%', padding: '6px' }} 
-                  accept=".pdf,.docx,.doc,.txt,.md,.json,.csv,.rtf,.html,.htm" 
+                  accept=".pdf,.docx,.doc,.txt,.md,.csv,.rtf,.html,.htm" 
                   ref={fileInputRef} 
                   onChange={handleCustomFileUpload} 
                 />
@@ -991,7 +993,7 @@ export default function HealioApp() {
                   <span className="badge badge-info" style={{ fontSize: '0.68rem' }}>📄 PDF (.pdf)</span>
                   <span className="badge badge-info" style={{ fontSize: '0.68rem' }}>📝 Word (.docx, .doc)</span>
                   <span className="badge badge-info" style={{ fontSize: '0.68rem' }}>📑 Text & MD (.txt, .md)</span>
-                  <span className="badge badge-info" style={{ fontSize: '0.68rem' }}>📊 Data (.json, .csv, .html)</span>
+                  <span className="badge badge-info" style={{ fontSize: '0.68rem' }}>📊 Formatted Data (.csv, .html)</span>
                 </div>
                 {isExtractingFile && (
                   <div style={{ color: 'var(--primary-cyan)', fontSize: '0.78rem', marginTop: '6px' }}>
@@ -1047,16 +1049,6 @@ export default function HealioApp() {
 
             <div style={{ display: 'flex', gap: '10px', marginBottom: '16px', flexWrap: 'wrap' }}>
               <input type="text" className="search-input" style={{ flex: 1, minWidth: '200px' }} placeholder="Search current file registry..." value={registrySearchQuery} onChange={e => setRegistrySearchQuery(e.target.value)} />
-              <button className="btn btn-secondary" style={{ fontSize: '0.78rem' }} onClick={() => {
-                const json = exportRegistryFileJSON('patients');
-                downloadFile(json, 'patients_registry.json', 'application/json');
-              }}>📥 Download Patients File</button>
-              <button className="btn btn-secondary" style={{ fontSize: '0.78rem' }} onClick={() => {
-                const json = exportRegistryFileJSON('policies');
-                downloadFile(json, 'policies_registry.json', 'application/json');
-              }}>📥 Download Policies File</button>
-              <button className="btn btn-secondary" style={{ fontSize: '0.78rem' }} onClick={() => importFileInputRef.current.click()}>Restore JSON File</button>
-              <input type="file" style={{ display: 'none' }} accept=".json" ref={importFileInputRef} onChange={(e) => handleImportRegistryFile(e, registryFileFilter === 'all' ? 'patients' : registryFileFilter)} />
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '400px', overflowY: 'auto', paddingRight: '6px' }}>
@@ -1082,10 +1074,6 @@ export default function HealioApp() {
                       </div>
                       <div style={{ display: 'flex', gap: '8px' }}>
                         <button className="btn btn-primary" style={{ padding: '6px 12px', fontSize: '0.78rem' }} onClick={() => { setShowRegistryModal(false); handleLoadDocument(doc); }}>⚡ Load & Audit</button>
-                        <button className="btn btn-secondary" style={{ padding: '6px 10px', fontSize: '0.75rem' }} title="Download JSON" onClick={() => {
-                          const json = exportToJSON(doc.title, doc.structuredData?.metadata ? { metadata: doc.structuredData.metadata, sections: doc.structuredData.sections, lines: parseDocumentText(doc.rawContent).lines } : parseDocumentText(doc.rawContent, doc.id), doc.structuredData?.summary || generateVerifiableSummary(parseDocumentText(doc.rawContent), runComplianceAudit(parseDocumentText(doc.rawContent))), doc.structuredData?.auditResults || runComplianceAudit(parseDocumentText(doc.rawContent)));
-                          downloadFile(json, `${doc.id}-structured-schema.json`, 'application/json');
-                        }}>📥 JSON</button>
                         {!doc.isSample && (
                           <button className="btn btn-secondary" style={{ padding: '6px 10px', fontSize: '0.75rem', color: '#fb7185' }} title="Delete Document" onClick={() => handleDeleteDoc(doc.id, doc.targetFile)}>🗑️</button>
                         )}
@@ -1116,7 +1104,7 @@ export default function HealioApp() {
                 const md = exportToMarkdown(activeDocData?.title || 'Report', parsedDoc, summaryData, auditResults);
                 downloadFile(md, `${activeDocData?.id || 'doc'}-audit-report.md`, 'text/markdown');
                 setShowExportModal(false);
-              }}>💾 Download Markdown</button>
+              }}>💾 Download Markdown Report</button>
             </div>
           </div>
         </div>
