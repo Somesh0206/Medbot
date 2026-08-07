@@ -15,7 +15,7 @@ import {
 } from '@/lib/storageEngine';
 import { extractTextFromFile } from '@/lib/fileExtractor';
 
-export default function VeriMedApp() {
+export default function HealioApp() {
   const [allDocs, setAllDocs] = useState([]);
   const [activeDocData, setActiveDocData] = useState(null);
   const [parsedDoc, setParsedDoc] = useState(null);
@@ -23,7 +23,7 @@ export default function VeriMedApp() {
   const [summaryData, setSummaryData] = useState(null);
   const [activeHighlightLine, setActiveHighlightLine] = useState(null);
   
-  const [activeTab, setActiveTab] = useState('audit'); // audit, summary, qa, schema
+  const [activeTab, setActiveTab] = useState('home'); // home, audit, summary, qa, schema
   const [docSearchQuery, setDocSearchQuery] = useState('');
   const [qaQuery, setQaQuery] = useState('');
   const [qaResponse, setQaResponse] = useState(null);
@@ -279,16 +279,19 @@ export default function VeriMedApp() {
       {/* Header */}
       <header className="app-header">
         <div className="brand-container">
-          <div className="brand-logo">V</div>
-          <div className="brand-text">
-            <h1>VeriMed AI Audit Studio</h1>
-            <p>Verifiable Medical & Governance Compliance Engine</p>
+          <div className="brand-logo">H</div>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <h1 className="brand-title">Healio</h1>
+              <span className="brand-badge">Clinical AI</span>
+            </div>
+            <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Verifiable Medical & Governance Compliance Engine</p>
           </div>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <button className="btn btn-secondary" onClick={() => setShowRegistryModal(true)}>
-            📁 Files: 📋 Patients ({patientDocsCount}) | 🏥 Policies ({policyDocsCount})
+            📁 Registries: 📋 Patients ({patientDocsCount}) | 🏥 Policies ({policyDocsCount})
           </button>
           <button className="btn btn-primary" onClick={() => setShowUploadModal(true)}>
             ➕ Insert Document
@@ -309,13 +312,13 @@ export default function VeriMedApp() {
                 <h2 style={{ fontSize: '1rem', fontFamily: 'var(--font-heading)' }}>Indexed Document Stream</h2>
                 <span className="badge badge-info">{parsedDoc?.metadata?.totalLines || 0} Lines</span>
                 {activeDocData?.title && (
-                  <span className="badge badge-success" style={{ fontSize: '0.68rem', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={activeDocData.title}>
+                  <span className="badge badge-success" style={{ fontSize: '0.68rem', maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={activeDocData.title}>
                     📄 {activeDocData.title}
                   </span>
                 )}
                 {activeDocData?.targetFile && (
                   <span className="badge badge-warning" style={{ fontSize: '0.68rem' }}>
-                    {activeDocData.targetFile === 'patients' ? '📋 Patient Records File' : '🏥 Hospital Policies File'}
+                    {activeDocData.targetFile === 'patients' ? '📋 Patients File' : '🏥 Policies File'}
                   </span>
                 )}
               </div>
@@ -388,9 +391,12 @@ export default function VeriMedApp() {
           </div>
         </div>
 
-        {/* Right Panel: Audit & Verification Suite */}
+        {/* Right Panel: Healio Functional Module Suite */}
         <div className="right-panel">
           <div className="panel-tabs">
+            <button className={`tab-btn ${activeTab === 'home' ? 'active' : ''}`} onClick={() => setActiveTab('home')}>
+              🏠 Home
+            </button>
             <button className={`tab-btn ${activeTab === 'audit' ? 'active' : ''}`} onClick={() => setActiveTab('audit')}>
               🛡️ Audit Matrix ({auditResults.length})
             </button>
@@ -398,7 +404,13 @@ export default function VeriMedApp() {
               📊 Executive Summary
             </button>
             <button className={`tab-btn ${activeTab === 'qa' ? 'active' : ''}`} onClick={() => setActiveTab('qa')}>
-              💬 Grounded Q&A ({dynamicQuestions.length} Topics)
+              💬 Grounded Q&A ({dynamicQuestions.length})
+            </button>
+            <button className={`tab-btn ${activeTab === 'patients_view' ? 'active' : ''}`} onClick={() => { setRegistryFileFilter('patients'); setShowRegistryModal(true); }}>
+              📋 Patient Records ({patientDocsCount})
+            </button>
+            <button className={`tab-btn ${activeTab === 'policies_view' ? 'active' : ''}`} onClick={() => { setRegistryFileFilter('policies'); setShowRegistryModal(true); }}>
+              🏥 Hospital Policies ({policyDocsCount})
             </button>
             <button className={`tab-btn ${activeTab === 'schema' ? 'active' : ''}`} onClick={() => setActiveTab('schema')}>
               ⚙️ JSON Schema
@@ -406,6 +418,126 @@ export default function VeriMedApp() {
           </div>
 
           <div className="tab-content">
+            {/* Healio Home Landing View */}
+            {activeTab === 'home' && (
+              <div>
+                {/* Hero Section */}
+                <div className="healio-hero">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                    <span className="badge badge-info" style={{ fontSize: '0.75rem', padding: '4px 10px' }}>✨ Healio Clinical AI Platform v2.0</span>
+                    <span className="badge badge-success" style={{ fontSize: '0.75rem', padding: '4px 10px' }}>🛡️ 100% Verifiable Evidence</span>
+                  </div>
+                  <h1 className="healio-title">Healio</h1>
+                  <div className="healio-subtitle">Next-Generation Verifiable Clinical Intelligence & Medical Governance Studio</div>
+                  <p className="healio-description">
+                    Healio is an advanced clinical audit and governance platform designed for medical boards, hospital administrators, healthcare providers, and clinical auditors. It parses multi-format medical records and hospital policies (PDF, Word, Text, RTF, CSV, JSON, HTML) into line-indexed statutory audit matrices, grounded evidence Q&A engines, and dual-file document registries with 100% verifiable source line citations.
+                  </p>
+
+                  <div style={{ display: 'flex', gap: '12px', marginTop: '20px', flexWrap: 'wrap' }}>
+                    <button className="btn btn-primary" onClick={() => setActiveTab('audit')}>
+                      🛡️ Launch Statutory Audit Matrix
+                    </button>
+                    <button className="btn btn-secondary" onClick={() => setActiveTab('qa')}>
+                      💬 Launch Grounded Q&A Assistant
+                    </button>
+                    <button className="btn btn-secondary" onClick={() => setShowUploadModal(true)}>
+                      ➕ Insert New Document
+                    </button>
+                  </div>
+                </div>
+
+                {/* Core Functions Grid */}
+                <div style={{ marginBottom: '12px' }}>
+                  <h3 style={{ fontFamily: 'var(--font-heading)', color: 'white', fontSize: '1.1rem' }}>
+                    Healio Core Functions & Capabilities
+                  </h3>
+                  <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                    Select any function card below to perform specific medical governance and clinical analysis workflows.
+                  </p>
+                </div>
+
+                <div className="feature-cards-grid">
+                  <div className="feature-card" onClick={() => setActiveTab('audit')}>
+                    <div>
+                      <div className="feature-icon">🛡️</div>
+                      <div className="feature-card-title">Statutory Audit Matrix</div>
+                      <div className="feature-card-desc">
+                        Automated compliance scanning against State Medical Board rules, PA supervision ratios, PDMP lookups, and HIPAA rules with line citations.
+                      </div>
+                    </div>
+                    <button className="btn btn-primary" style={{ fontSize: '0.78rem', width: '100%', justifyContent: 'center' }}>
+                      Open Audit Matrix ➔
+                    </button>
+                  </div>
+
+                  <div className="feature-card" onClick={() => setActiveTab('qa')}>
+                    <div>
+                      <div className="feature-icon">💬</div>
+                      <div className="feature-card-title">Grounded Evidence Q&A</div>
+                      <div className="feature-card-desc">
+                        Ask any clinical, operational, or policy questions answered strictly using verbatim source lines from your loaded document with jump links.
+                      </div>
+                    </div>
+                    <button className="btn btn-primary" style={{ fontSize: '0.78rem', width: '100%', justifyContent: 'center' }}>
+                      Open Grounded Q&A ➔
+                    </button>
+                  </div>
+
+                  <div className="feature-card" onClick={() => setActiveTab('summary')}>
+                    <div>
+                      <div className="feature-icon">📊</div>
+                      <div className="feature-card-title">Executive Summary</div>
+                      <div className="feature-card-desc">
+                        Structured overview of the loaded document, compliance scores, risk level breakdowns, and verifiable line-cited takeaways.
+                      </div>
+                    </div>
+                    <button className="btn btn-primary" style={{ fontSize: '0.78rem', width: '100%', justifyContent: 'center' }}>
+                      View Executive Summary ➔
+                    </button>
+                  </div>
+
+                  <div className="feature-card" onClick={() => { setRegistryFileFilter('patients'); setShowRegistryModal(true); }}>
+                    <div>
+                      <div className="feature-icon">📋</div>
+                      <div className="feature-card-title">Patient Records File</div>
+                      <div className="feature-card-desc">
+                        Manage patient clinical notes, EHR extracts, case hearing transcripts, and intake files stored in <code style={{ color: '#38bdf8' }}>patients_registry.json</code>.
+                      </div>
+                    </div>
+                    <button className="btn btn-secondary" style={{ fontSize: '0.78rem', width: '100%', justifyContent: 'center' }}>
+                      Manage Patient Records ({patientDocsCount}) ➔
+                    </button>
+                  </div>
+
+                  <div className="feature-card" onClick={() => { setRegistryFileFilter('policies'); setShowRegistryModal(true); }}>
+                    <div>
+                      <div className="feature-icon">🏥</div>
+                      <div className="feature-card-title">Hospital Policies File</div>
+                      <div className="feature-card-desc">
+                        Manage hospital SOPs, telemedicine protocols, surgical governance rules, and HIPAA directives stored in <code style={{ color: '#38bdf8' }}>policies_registry.json</code>.
+                      </div>
+                    </div>
+                    <button className="btn btn-secondary" style={{ fontSize: '0.78rem', width: '100%', justifyContent: 'center' }}>
+                      Manage Hospital Policies ({policyDocsCount}) ➔
+                    </button>
+                  </div>
+
+                  <div className="feature-card" onClick={() => setShowUploadModal(true)}>
+                    <div>
+                      <div className="feature-icon">➕</div>
+                      <div className="feature-card-title">Insert Medical Document</div>
+                      <div className="feature-card-desc">
+                        Upload & extract multi-format files (PDF, Word DOCX/DOC, Text, MD, CSV, JSON, HTML) into Healio's dual-file registries for instant audit.
+                      </div>
+                    </div>
+                    <button className="btn btn-primary" style={{ fontSize: '0.78rem', width: '100%', justifyContent: 'center' }}>
+                      Insert Document File ➔
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {activeTab === 'audit' && (
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
@@ -636,7 +768,7 @@ export default function VeriMedApp() {
         <div className="modal-overlay" onClick={() => setShowUploadModal(false)}>
           <div className="modal-content" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <h3 style={{ fontFamily: 'var(--font-heading)', color: 'white' }}>Insert Medical Document</h3>
+              <h3 style={{ fontFamily: 'var(--font-heading)', color: 'white' }}>Insert Medical Document into Healio</h3>
               <button style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', fontSize: '1.2rem' }} onClick={() => setShowUploadModal(false)}>✕</button>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
@@ -702,7 +834,7 @@ export default function VeriMedApp() {
         <div className="modal-overlay" onClick={() => setShowRegistryModal(false)}>
           <div className="modal-content" style={{ width: '850px', maxWidth: '95vw' }} onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <h3 style={{ fontFamily: 'var(--font-heading)', color: 'white' }}>Document Knowledge Base Files</h3>
+              <h3 style={{ fontFamily: 'var(--font-heading)', color: 'white' }}>Healio Document Knowledge Registries</h3>
               <button style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', fontSize: '1.2rem' }} onClick={() => setShowRegistryModal(false)}>✕</button>
             </div>
             
@@ -790,7 +922,7 @@ export default function VeriMedApp() {
         <div className="modal-overlay" onClick={() => setShowExportModal(false)}>
           <div className="modal-content" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <h3 style={{ fontFamily: 'var(--font-heading)', color: 'white' }}>Export Verifiable Report</h3>
+              <h3 style={{ fontFamily: 'var(--font-heading)', color: 'white' }}>Export Verifiable Report from Healio</h3>
               <button style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', fontSize: '1.2rem' }} onClick={() => setShowExportModal(false)}>✕</button>
             </div>
             <div className="export-code-preview">

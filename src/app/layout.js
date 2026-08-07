@@ -1,8 +1,8 @@
 import "./globals.css";
 
 export const metadata = {
-  title: "VeriMed AI Audit Studio",
-  description: "Verifiable Medical Compliance Engine",
+  title: "Healio — Verifiable Clinical Intelligence & Medical Governance Studio",
+  description: "Next-generation verifiable medical compliance, patient record management, grounded evidence Q&A, and statutory audit engine.",
 };
 
 export default function RootLayout({ children }) {
