@@ -10,8 +10,8 @@ import {
   getStoredDocuments,
   saveDocumentToRegistry,
   deleteDocumentFromRegistry,
-  exportRegistryJSON,
-  importRegistryJSON
+  exportRegistryFileJSON,
+  importRegistryFileJSON
 } from '@/lib/storageEngine';
 import { extractTextFromFile } from '@/lib/fileExtractor';
 
@@ -30,10 +30,12 @@ export default function VeriMedApp() {
   
   const [showRegistryModal, setShowRegistryModal] = useState(false);
   const [registrySearchQuery, setRegistrySearchQuery] = useState('');
+  const [registryFileFilter, setRegistryFileFilter] = useState('all'); // all, patients, policies
   
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [customDocTitle, setCustomDocTitle] = useState('');
   const [customDocCategory, setCustomDocCategory] = useState('General');
+  const [customTargetFile, setCustomTargetFile] = useState('patients'); // patients, policies
   const [customDocText, setCustomDocText] = useState('');
   
   const [showExportModal, setShowExportModal] = useState(false);
@@ -44,17 +46,22 @@ export default function VeriMedApp() {
   const importFileInputRef = useRef(null);
 
   useEffect(() => {
-    // Initialization: Seed sample docs if empty, load docs
-    let stored = getStoredDocuments();
+    // Initialization: Seed sample docs if empty, load docs into 2 separate files
+    let stored = getStoredDocuments('all');
     if (stored.length === 0) {
       SAMPLE_DOCUMENTS.forEach((doc) => {
         const parsed = parseDocumentText(doc.rawContent, doc.id);
         const audit = runComplianceAudit(parsed);
         const summary = generateVerifiableSummary(parsed, audit);
+        
+        // Categorize into patients file vs policies file
+        const targetFile = (doc.id.includes('hearing') || doc.id.includes('transcript') || doc.category.includes('Transcript')) ? 'patients' : 'policies';
+        
         const record = {
           id: doc.id,
           title: doc.title,
           category: doc.category,
+          targetFile,
           description: doc.description,
           addedAt: new Date().toISOString(),
           rawContent: doc.rawContent,
@@ -66,9 +73,9 @@ export default function VeriMedApp() {
             auditResults: audit
           }
         };
-        saveDocumentToRegistry(record);
+        saveDocumentToRegistry(record, targetFile);
       });
-      stored = getStoredDocuments();
+      stored = getStoredDocuments('all');
     }
     
     setAllDocs(stored.length > 0 ? stored : SAMPLE_DOCUMENTS);
@@ -76,6 +83,11 @@ export default function VeriMedApp() {
       handleLoadDocument(stored[0]);
     }
   }, []);
+
+  const reloadAllDocs = (filter = registryFileFilter) => {
+    const updated = getStoredDocuments(filter);
+    setAllDocs(updated);
+  };
 
   const handleLoadDocument = (docData) => {
     setActiveDocData(docData);
@@ -107,14 +119,13 @@ export default function VeriMedApp() {
   const handleQuickDemo = () => {
     setIsDemoRunning(true);
     setTimeout(() => {
-      const docs = getStoredDocuments();
+      const docs = getStoredDocuments('all');
       const docsToUse = docs.length > 0 ? docs : SAMPLE_DOCUMENTS;
       if (docsToUse.length > 0) {
         handleLoadDocument(docsToUse[0]);
       }
       setActiveTab('audit');
       setIsDemoRunning(false);
-      // Timeout to ensure render before jumping
       setTimeout(() => {
         if (auditResults.length > 1) {
           jumpToLine(auditResults[1].citation.startLine, auditResults[1].citation.endLine);
@@ -123,10 +134,10 @@ export default function VeriMedApp() {
     }, 600);
   };
 
-  const handleDeleteDoc = (id) => {
-    if (confirm("Are you sure you want to remove this from the registry?")) {
-      deleteDocumentFromRegistry(id);
-      const updatedDocs = getStoredDocuments();
+  const handleDeleteDoc = (id, targetFile) => {
+    if (confirm("Are you sure you want to remove this document from the registry file?")) {
+      deleteDocumentFromRegistry(id, targetFile);
+      const updatedDocs = getStoredDocuments(registryFileFilter);
       setAllDocs(updatedDocs);
       if (activeDocData?.id === id && updatedDocs.length > 0) {
         handleLoadDocument(updatedDocs[0]);
@@ -149,7 +160,8 @@ export default function VeriMedApp() {
       id: docId,
       title,
       category: customDocCategory,
-      description: `Ingested ${new Date().toLocaleDateString()} — ${parsed.metadata.totalLines} lines`,
+      targetFile: customTargetFile,
+      description: `Ingested ${new Date().toLocaleDateString()} — ${parsed.metadata.totalLines} lines (${customTargetFile === 'patients' ? 'Patient Record' : 'Hospital Policy'})`,
       addedAt: new Date().toISOString(),
       rawContent: text,
       isSample: false,
@@ -160,9 +172,8 @@ export default function VeriMedApp() {
         auditResults: audit
       }
     };
-    saveDocumentToRegistry(docRecord);
-    const updatedDocs = getStoredDocuments();
-    setAllDocs(updatedDocs);
+    saveDocumentToRegistry(docRecord, customTargetFile);
+    reloadAllDocs();
     setShowUploadModal(false);
     setCustomDocText('');
     setCustomDocTitle('');
@@ -188,15 +199,14 @@ export default function VeriMedApp() {
     }
   };
 
-  const handleImportRegistry = (e) => {
+  const handleImportRegistryFile = (e, targetFile) => {
     const file = e.target.files[0];
     if (file) {
       const reader = new FileReader();
       reader.onload = (ev) => {
-        const count = importRegistryJSON(ev.target.result);
-        alert(`Successfully imported and restored ${count} medical documents into registry!`);
-        const updatedDocs = getStoredDocuments();
-        setAllDocs(updatedDocs);
+        const count = importRegistryFileJSON(ev.target.result, targetFile);
+        alert(`Successfully imported ${count} documents into ${targetFile === 'patients' ? 'Patient Records File' : 'Hospital Policies File'}!`);
+        reloadAllDocs();
       };
       reader.readAsText(file);
     }
@@ -212,19 +222,23 @@ export default function VeriMedApp() {
   };
 
   const getFilteredRegistryDocs = () => {
+    let docs = getStoredDocuments(registryFileFilter);
     const term = registrySearchQuery.toLowerCase().trim();
-    if (!term) return allDocs;
-    return allDocs.filter(d => 
-      d.title.toLowerCase().includes(term) ||
-      d.category.toLowerCase().includes(term) ||
-      (d.structuredData?.summary?.stats?.riskLevel || '').toLowerCase().includes(term)
-    );
+    if (term) {
+      docs = docs.filter(d => 
+        d.title.toLowerCase().includes(term) ||
+        d.category.toLowerCase().includes(term) ||
+        (d.structuredData?.summary?.stats?.riskLevel || '').toLowerCase().includes(term)
+      );
+    }
+    return docs;
   };
 
   const schemaPayload = activeDocData && parsedDoc && summaryData ? {
     documentId: activeDocData.id,
     title: activeDocData.title,
     category: activeDocData.category,
+    targetStorageFile: activeDocData.targetFile || 'policies',
     description: activeDocData.description,
     addedTimestamp: activeDocData.addedAt || new Date().toISOString(),
     parsingMetadata: parsedDoc.metadata,
@@ -248,171 +262,200 @@ export default function VeriMedApp() {
     }))
   } : null;
 
+  const patientDocsCount = getStoredDocuments('patients').length;
+  const policyDocsCount = getStoredDocuments('policies').length;
+
   return (
     <div>
       {/* Header */}
       <header className="app-header">
         <div className="brand-container">
           <div className="brand-logo">V</div>
-          <div className="brand-title">VeriMed AI</div>
-          <div className="brand-badge">Audit Studio</div>
+          <div className="brand-text">
+            <h1>VeriMed AI Audit Studio</h1>
+            <p>Verifiable Medical & Governance Compliance Engine</p>
+          </div>
         </div>
-        <div className="header-controls">
-          <select 
-            className="doc-selector-select"
-            value={activeDocData?.id || ''}
-            onChange={(e) => {
-              const doc = allDocs.find(d => d.id === e.target.value);
-              if (doc) handleLoadDocument(doc);
-            }}
-          >
-            {allDocs.map(doc => (
-              <option key={doc.id} value={doc.id}>
-                {doc.category} — {doc.title} {doc.isSample ? '(Sample)' : '(Stored)'}
-              </option>
-            ))}
-          </select>
-          <button className="btn btn-primary" onClick={() => setShowUploadModal(true)}>
-            + Ingest Document
-          </button>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <button className="btn btn-secondary" onClick={() => setShowRegistryModal(true)}>
-            📚 Registry <span style={{ background: 'var(--primary-cyan)', padding: '2px 6px', borderRadius: '10px', fontSize: '0.65rem' }}>{allDocs.length}</span>
+            📁 Files: 📋 Patients ({patientDocsCount}) | 🏥 Policies ({policyDocsCount})
+          </button>
+          <button className="btn btn-primary" onClick={() => setShowUploadModal(true)}>
+            ➕ Ingest Document
+          </button>
+          <button className="btn btn-secondary" onClick={handleQuickDemo} disabled={isDemoRunning}>
+            {isDemoRunning ? '⏳ Running...' : '⚡ Quick Demo'}
           </button>
         </div>
       </header>
 
-      {/* Banner */}
-      <div className="hackathon-banner">
-        <div className="hackathon-info">
-          <span className="sparkle-icon">✨</span>
-          <strong>Verifiable Medical Compliance Engine</strong>
-          <span>Powered by deterministic rule-based auditing + LLM summarization.</span>
-        </div>
-        <button className="btn btn-secondary" style={{ padding: '4px 10px', fontSize: '0.75rem' }} onClick={handleQuickDemo}>
-          {isDemoRunning ? '⚡ Running Live Audit...' : '✨ Run Demo Audit'}
-        </button>
-      </div>
-
-      {/* Main Workspace */}
-      <div className="main-workspace">
-        {/* Left Panel */}
-        <div className="panel-card">
+      {/* Main Workspace Layout */}
+      <div className="main-layout">
+        {/* Left Panel: Document Viewer */}
+        <div className="left-panel">
           <div className="panel-header">
-            <div className="panel-title-group">
-              <span style={{ fontSize: '1.2rem' }}>📄</span>
-              <div>
-                <div className="panel-title">{activeDocData?.title || 'Loading...'}</div>
-                <div className="panel-subtitle">{activeDocData?.category} | {activeDocData?.description}</div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', marginBottom: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <h2 style={{ fontSize: '1rem', fontFamily: 'var(--font-heading)' }}>Indexed Document Stream</h2>
+                <span className="badge badge-info">{parsedDoc?.metadata?.totalLines || 0} Lines</span>
+                {activeDocData?.targetFile && (
+                  <span className="badge badge-warning" style={{ fontSize: '0.68rem' }}>
+                    {activeDocData.targetFile === 'patients' ? '📋 Patient Records File' : '🏥 Hospital Policies File'}
+                  </span>
+                )}
               </div>
+              <button className="btn btn-secondary" style={{ padding: '4px 8px', fontSize: '0.72rem' }} onClick={() => setShowRegistryModal(true)}>Switch Document 🔁</button>
             </div>
-            <div className="status-badge" style={{ background: 'rgba(6, 182, 212, 0.15)', color: 'var(--primary-cyan)' }}>
-              {parsedDoc?.metadata?.totalLines || 0} Lines
+            <div style={{ width: '100%' }}>
+              <input 
+                type="text" 
+                className="search-input" 
+                placeholder="Search indexed verbatim lines..." 
+                value={docSearchQuery}
+                onChange={(e) => setDocSearchQuery(e.target.value)}
+              />
             </div>
           </div>
-          <div className="doc-search-box">
-            <input 
-              type="text" 
-              className="search-input" 
-              placeholder="Search document lines..." 
-              value={docSearchQuery}
-              onChange={(e) => setDocSearchQuery(e.target.value)}
-            />
-          </div>
-          <div className="doc-lines-container">
-            {getFilteredLines().map((line) => (
-              <div 
-                key={line.lineNumber} 
-                id={`doc-line-${line.lineNumber}`}
-                className={`doc-line-row ${activeHighlightLine === line.lineNumber ? 'highlight-active' : ''}`}
-              >
-                <span className="line-num">{line.lineNumber}</span>
-                <span className="line-content">
-                  {line.text}
-                  {line.tags.map((t, idx) => (
-                    <span key={idx} className={`line-tag tag-${t.type}`}>{t.label}</span>
-                  ))}
-                </span>
+
+          <div className="document-stream">
+            {getFilteredLines().length === 0 ? (
+              <div style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--text-dim)' }}>
+                No document lines match your search filter "{docSearchQuery}".
               </div>
-            ))}
+            ) : (
+              getFilteredLines().map((line) => {
+                const isHighlighted = activeHighlightLine === line.lineNumber;
+                return (
+                  <div 
+                    key={line.lineNumber} 
+                    id={`doc-line-${line.lineNumber}`}
+                    className={`document-line ${isHighlighted ? 'highlighted' : ''}`}
+                    onClick={() => setActiveHighlightLine(line.lineNumber)}
+                  >
+                    <span className="line-number">{line.lineNumber}</span>
+                    <div style={{ flex: 1 }}>
+                      {line.section && <span className="section-tag">[{line.section}]</span>}
+                      <span className="line-text">{line.text}</span>
+                    </div>
+                  </div>
+                );
+              })
+            )}
           </div>
         </div>
 
-        {/* Right Panel */}
-        <div className="panel-card">
-          <div className="tab-bar">
-            <button className={`tab-btn ${activeTab === 'audit' ? 'active' : ''}`} onClick={() => setActiveTab('audit')}>🔍 Audit Matrix</button>
-            <button className={`tab-btn ${activeTab === 'summary' ? 'active' : ''}`} onClick={() => setActiveTab('summary')}>📊 Verifiable Summary</button>
-            <button className={`tab-btn ${activeTab === 'qa' ? 'active' : ''}`} onClick={() => setActiveTab('qa')}>💬 Grounded Q&A</button>
-            <button className={`tab-btn ${activeTab === 'schema' ? 'active' : ''}`} onClick={() => setActiveTab('schema')}>⚙️ JSON Schema</button>
+        {/* Right Panel: Audit & Verification Suite */}
+        <div className="right-panel">
+          <div className="panel-tabs">
+            <button className={`tab-btn ${activeTab === 'audit' ? 'active' : ''}`} onClick={() => setActiveTab('audit')}>
+              🛡️ Audit Matrix ({auditResults.length})
+            </button>
+            <button className={`tab-btn ${activeTab === 'summary' ? 'active' : ''}`} onClick={() => setActiveTab('summary')}>
+              📊 Executive Summary
+            </button>
+            <button className={`tab-btn ${activeTab === 'qa' ? 'active' : ''}`} onClick={() => setActiveTab('qa')}>
+              💬 Grounded Q&A
+            </button>
+            <button className={`tab-btn ${activeTab === 'schema' ? 'active' : ''}`} onClick={() => setActiveTab('schema')}>
+              ⚙️ JSON Schema
+            </button>
           </div>
-          
+
           <div className="tab-content">
             {activeTab === 'audit' && (
               <div>
-                <div className="stats-grid">
-                  <div className="stat-card">
-                    <div className="stat-val" style={{ color: summaryData?.stats?.violations > 0 ? '#fb7185' : summaryData?.stats?.advisories > 0 ? '#fbbf24' : '#34d399' }}>
-                      {summaryData?.stats?.riskLevel ? summaryData.stats.riskLevel.split(' ')[0] : 'N/A'}
-                    </div>
-                    <div className="stat-lbl">Risk Level</div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                  <div>
+                    <h3 style={{ fontSize: '1rem', fontFamily: 'var(--font-heading)', color: 'var(--text-main)' }}>
+                      Compliance & Statutory Rules Matrix
+                    </h3>
+                    <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                      Automated audit findings with verbatim source citations
+                    </span>
                   </div>
-                  <div className="stat-card">
-                    <div className="stat-val" style={{ color: '#34d399' }}>{summaryData?.stats?.compliant || 0}</div>
-                    <div className="stat-lbl">Compliant</div>
-                  </div>
-                  <div className="stat-card">
-                    <div className="stat-val" style={{ color: '#fbbf24' }}>{summaryData?.stats?.advisories || 0}</div>
-                    <div className="stat-lbl">Advisories</div>
-                  </div>
-                  <div className="stat-card">
-                    <div className="stat-val" style={{ color: '#fb7185' }}>{summaryData?.stats?.violations || 0}</div>
-                    <div className="stat-lbl">Violations</div>
-                  </div>
+                  <button className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '0.78rem' }} onClick={() => setShowExportModal(true)}>
+                    📤 Export Report
+                  </button>
                 </div>
-                
-                <div className="audit-grid">
-                  {auditResults.length === 0 ? (
-                    <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>No compliance audit items generated for this document.</div>
-                  ) : (
-                    auditResults.map((item) => (
-                      <div key={item.id} className="audit-item-card">
-                        <div className="audit-item-header">
-                          <div className="audit-item-title">[{item.id}] {item.title}</div>
-                          <span className={`status-badge ${item.status === 'compliant' ? 'badge-compliant' : item.status === 'advisory' ? 'badge-advisory' : 'badge-violation'}`}>
-                            {item.status}
-                          </span>
+
+                <div className="audit-matrix-grid">
+                  {auditResults.map((rule) => {
+                    const statusClass = rule.status === 'VIOLATION' ? 'status-violation' : rule.status === 'ADVISORY' ? 'status-advisory' : 'status-compliant';
+                    const icon = rule.status === 'VIOLATION' ? '🚨' : rule.status === 'ADVISORY' ? '⚠️' : '✅';
+                    return (
+                      <div key={rule.id} className="audit-card">
+                        <div className="audit-header">
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span>{icon}</span>
+                            <strong style={{ fontSize: '0.9rem', color: 'var(--text-main)' }}>{rule.title}</strong>
+                          </div>
+                          <span className={`status-badge ${statusClass}`}>{rule.status}</span>
                         </div>
-                        <div className="audit-finding-text">{item.findings}</div>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                          <span className="citation-pill" onClick={() => jumpToLine(item.citation.startLine, item.citation.endLine)}>
-                            📍 Citation: Lines {item.citation.startLine}-{item.citation.endLine}
-                          </span>
-                          <span style={{ fontSize: '0.72rem', color: 'var(--text-dim)' }}>{item.category}</span>
-                        </div>
-                        <div className="verbatim-quote-box">
-                          "{item.verbatimQuote}"
+                        <p className="findings-text">{rule.findings}</p>
+                        
+                        {rule.citation && (
+                          <div style={{ marginBottom: '10px' }}>
+                            <button className="citation-pill" onClick={() => jumpToLine(rule.citation.startLine, rule.citation.endLine)}>
+                              📍 Verbatim Citation: Lines {rule.citation.startLine}–{rule.citation.endLine}
+                            </button>
+                            {rule.verbatimQuote && (
+                              <div className="verbatim-quote">
+                                "{rule.verbatimQuote}"
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        <div className="recommendation-box">
+                          💡 <strong>Actionable Fix:</strong> {rule.recommendation}
                         </div>
                       </div>
-                    ))
-                  )}
+                    );
+                  })}
                 </div>
               </div>
             )}
-            
+
             {activeTab === 'summary' && summaryData && (
               <div>
-                <div style={{ fontSize: '0.9rem', lineHeight: 1.6, marginBottom: '20px', color: '#f8fafc' }}>
-                  {summaryData.overview}
+                <div className="summary-stats-grid">
+                  <div className="stat-card">
+                    <span className="stat-label">Document Risk Level</span>
+                    <span className="stat-value" style={{ color: summaryData.stats.violations > 0 ? '#fb7185' : '#34d399' }}>
+                      {summaryData.stats.riskLevel}
+                    </span>
+                  </div>
+                  <div className="stat-card">
+                    <span className="stat-label">Violations Detected</span>
+                    <span className="stat-value" style={{ color: '#fb7185' }}>{summaryData.stats.violations}</span>
+                  </div>
+                  <div className="stat-card">
+                    <span className="stat-label">Advisories Issued</span>
+                    <span className="stat-value" style={{ color: '#fbbf24' }}>{summaryData.stats.advisories}</span>
+                  </div>
+                  <div className="stat-card">
+                    <span className="stat-label">Compliance Score</span>
+                    <span className="stat-value" style={{ color: '#38bdf8' }}>{summaryData.stats.complianceScore}%</span>
+                  </div>
                 </div>
-                <h3 style={{ fontSize: '1rem', marginBottom: '12px', color: 'var(--primary-cyan)', fontFamily: 'var(--font-heading)' }}>Key Grounded Takeaways</h3>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                  {summaryData.keyTakeaways.map((takeaway, idx) => (
-                    <div key={idx} style={{ background: 'rgba(30, 41, 59, 0.4)', border: '1px solid var(--border-card)', padding: '12px 16px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
-                      <div>
-                        <strong style={{ color: 'var(--text-main)', fontSize: '0.85rem' }}>{takeaway.topic}:</strong>
-                        <span style={{ color: '#cbd5e1', fontSize: '0.82rem', marginLeft: '6px' }}>{takeaway.text}</span>
-                      </div>
-                      <span className="citation-pill" onClick={() => jumpToLine(takeaway.citation.startLine, takeaway.citation.endLine)}>
+
+                <div className="summary-section">
+                  <h4 style={{ color: 'var(--primary-cyan)', fontSize: '0.9rem', marginBottom: '8px', fontFamily: 'var(--font-heading)' }}>
+                    Executive Overview
+                  </h4>
+                  <p style={{ fontSize: '0.86rem', color: '#cbd5e1', lineHeight: 1.6 }}>{summaryData.overview}</p>
+                </div>
+
+                <div className="summary-section">
+                  <h4 style={{ color: 'var(--primary-cyan)', fontSize: '0.9rem', marginBottom: '8px', fontFamily: 'var(--font-heading)' }}>
+                    Verifiable Compliance Highlights
+                  </h4>
+                  {summaryData.takeaways.map((takeaway, idx) => (
+                    <div key={idx} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', marginBottom: '8px' }}>
+                      <span style={{ color: 'var(--primary-cyan)' }}>•</span>
+                      <span style={{ fontSize: '0.84rem', color: '#e2e8f0', flex: 1 }}>{takeaway.text}</span>
+                      <span className="citation-pill" style={{ cursor: 'pointer' }} onClick={() => jumpToLine(takeaway.citation.startLine)}>
                         Line {takeaway.citation.startLine}
                       </span>
                     </div>
@@ -427,7 +470,7 @@ export default function VeriMedApp() {
                 </div>
               </div>
             )}
-            
+
             {activeTab === 'qa' && (
               <div className="qa-container">
                 <div style={{ marginBottom: '12px', fontSize: '0.82rem', color: 'var(--primary-cyan)', fontWeight: 500 }}>
@@ -455,7 +498,7 @@ export default function VeriMedApp() {
                   />
                   <button className="btn btn-primary" onClick={() => handleAskQuery(qaQuery)}>Ask ✨</button>
                 </div>
-                
+
                 {qaResponse ? (
                   <div className="qa-response-card">
                     <div className="response-header">
@@ -498,7 +541,7 @@ export default function VeriMedApp() {
                 )}
               </div>
             )}
-            
+
             {activeTab === 'schema' && (
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
@@ -529,16 +572,24 @@ export default function VeriMedApp() {
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               <div>
+                <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Target Storage Registry File</label>
+                <select className="search-input" style={{ width: '100%', borderColor: 'var(--primary-cyan)' }} value={customTargetFile} onChange={e => setCustomTargetFile(e.target.value)}>
+                  <option value="patients">📋 Patient Records File (patients_registry.json)</option>
+                  <option value="policies">🏥 Hospital Policies File (policies_registry.json)</option>
+                </select>
+              </div>
+              <div>
                 <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Document Title</label>
-                <input type="text" className="search-input" style={{ width: '100%' }} value={customDocTitle} onChange={e => setCustomDocTitle(e.target.value)} placeholder="e.g. Acme Health Telemedicine Policy" />
+                <input type="text" className="search-input" style={{ width: '100%' }} value={customDocTitle} onChange={e => setCustomDocTitle(e.target.value)} placeholder="e.g. Patient Clinical History / Telemedicine SOP" />
               </div>
               <div>
                 <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Category</label>
                 <select className="search-input" style={{ width: '100%' }} value={customDocCategory} onChange={e => setCustomDocCategory(e.target.value)}>
-                  <option value="General">General Medical Policy</option>
+                  <option value="Patient Records">Patient Records & Clinical Notes</option>
                   <option value="Telemedicine">Telemedicine Protocol</option>
                   <option value="Surgical">Surgical Governance</option>
                   <option value="Compliance">Regulatory Compliance</option>
+                  <option value="General">General Medical Document</option>
                 </select>
               </div>
               <div>
@@ -570,50 +621,80 @@ export default function VeriMedApp() {
                 <textarea className="search-input" style={{ width: '100%', height: '150px', resize: 'vertical' }} placeholder="Paste document text here or upload any PDF/Word/Text file above..." value={customDocText} onChange={e => setCustomDocText(e.target.value)}></textarea>
               </div>
               <button className="btn btn-primary" style={{ justifyContent: 'center', marginTop: '10px' }} onClick={handleIngestCustomDoc}>
-                ⚡ Parse & Audit Document
+                ⚡ Save to {customTargetFile === 'patients' ? 'Patient Records File' : 'Hospital Policies File'} & Audit
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Registry Modal */}
+      {/* Knowledge Base Registry Modal */}
       {showRegistryModal && (
         <div className="modal-overlay" onClick={() => setShowRegistryModal(false)}>
-          <div className="modal-content" style={{ width: '800px', maxWidth: '95vw' }} onClick={e => e.stopPropagation()}>
+          <div className="modal-content" style={{ width: '850px', maxWidth: '95vw' }} onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <h3 style={{ fontFamily: 'var(--font-heading)', color: 'white' }}>Document Knowledge Base Registry</h3>
+              <h3 style={{ fontFamily: 'var(--font-heading)', color: 'white' }}>Document Knowledge Base Files</h3>
               <button style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', fontSize: '1.2rem' }} onClick={() => setShowRegistryModal(false)}>✕</button>
             </div>
             
-            <div style={{ display: 'flex', gap: '10px', marginBottom: '16px' }}>
-              <input type="text" className="search-input" placeholder="Search registry..." value={registrySearchQuery} onChange={e => setRegistrySearchQuery(e.target.value)} />
-              <button className="btn btn-secondary" onClick={() => {
-                const json = exportRegistryJSON();
-                downloadFile(json, 'verimed-knowledge-base-backup.json', 'application/json');
-              }}>📤 Export Base</button>
-              <button className="btn btn-secondary" onClick={() => importFileInputRef.current.click()}>📥 Restore Base</button>
-              <input type="file" style={{ display: 'none' }} accept=".json" ref={importFileInputRef} onChange={handleImportRegistry} />
+            {/* Target File Filter Tabs */}
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '14px', background: 'rgba(15, 23, 42, 0.6)', padding: '6px', borderRadius: '8px' }}>
+              <button 
+                className={`btn ${registryFileFilter === 'all' ? 'btn-primary' : 'btn-secondary'}`}
+                style={{ flex: 1, padding: '6px 10px', fontSize: '0.8rem' }}
+                onClick={() => setRegistryFileFilter('all')}
+              >
+                📁 All Inserted Files ({getStoredDocuments('all').length})
+              </button>
+              <button 
+                className={`btn ${registryFileFilter === 'patients' ? 'btn-primary' : 'btn-secondary'}`}
+                style={{ flex: 1, padding: '6px 10px', fontSize: '0.8rem' }}
+                onClick={() => setRegistryFileFilter('patients')}
+              >
+                📋 Patient Records File ({patientDocsCount})
+              </button>
+              <button 
+                className={`btn ${registryFileFilter === 'policies' ? 'btn-primary' : 'btn-secondary'}`}
+                style={{ flex: 1, padding: '6px 10px', fontSize: '0.8rem' }}
+                onClick={() => setRegistryFileFilter('policies')}
+              >
+                🏥 Hospital Policies File ({policyDocsCount})
+              </button>
+            </div>
+
+            <div style={{ display: 'flex', gap: '10px', marginBottom: '16px', flexWrap: 'wrap' }}>
+              <input type="text" className="search-input" style={{ flex: 1, minWidth: '200px' }} placeholder="Search current file registry..." value={registrySearchQuery} onChange={e => setRegistrySearchQuery(e.target.value)} />
+              <button className="btn btn-secondary" style={{ fontSize: '0.78rem' }} onClick={() => {
+                const json = exportRegistryFileJSON('patients');
+                downloadFile(json, 'patients_registry.json', 'application/json');
+              }}>📥 Download Patients File</button>
+              <button className="btn btn-secondary" style={{ fontSize: '0.78rem' }} onClick={() => {
+                const json = exportRegistryFileJSON('policies');
+                downloadFile(json, 'policies_registry.json', 'application/json');
+              }}>📥 Download Policies File</button>
+              <button className="btn btn-secondary" style={{ fontSize: '0.78rem' }} onClick={() => importFileInputRef.current.click()}>Restore JSON File</button>
+              <input type="file" style={{ display: 'none' }} accept=".json" ref={importFileInputRef} onChange={(e) => handleImportRegistryFile(e, registryFileFilter === 'all' ? 'patients' : registryFileFilter)} />
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '400px', overflowY: 'auto', paddingRight: '6px' }}>
               {getFilteredRegistryDocs().length === 0 ? (
-                <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '40px 20px' }}>No medical documents match your search.</div>
+                <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '40px 20px' }}>No documents found in this file registry.</div>
               ) : (
                 getFilteredRegistryDocs().map(doc => {
                   const stats = doc.structuredData?.summary?.stats || {};
                   const riskColor = stats.violations > 0 ? '#fb7185' : stats.advisories > 0 ? '#fbbf24' : '#34d399';
                   const dateFormatted = new Date(doc.addedAt || Date.now()).toLocaleString();
+                  const fileTag = doc.targetFile === 'patients' ? '📋 Patient Records File' : '🏥 Hospital Policies File';
                   return (
                     <div key={doc.id} style={{ background: 'rgba(30, 41, 59, 0.5)', border: '1px solid var(--border-card)', borderRadius: '10px', padding: '14px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px' }}>
                       <div style={{ flex: 1 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px', flexWrap: 'wrap' }}>
                           <span style={{ fontWeight: 700, color: 'var(--text-main)', fontSize: '0.95rem' }}>{doc.title}</span>
-                          <span className="status-badge" style={{ background: 'rgba(6, 182, 212, 0.15)', color: 'var(--primary-cyan)', fontSize: '0.68rem' }}>{doc.category}</span>
+                          <span className="status-badge" style={{ background: 'rgba(6, 182, 212, 0.15)', color: 'var(--primary-cyan)', fontSize: '0.68rem' }}>{fileTag}</span>
                           <span className="status-badge" style={{ background: 'rgba(255, 255, 255, 0.05)', color: riskColor, fontSize: '0.68rem' }}>{stats.riskLevel || 'Audited'}</span>
                         </div>
                         <div style={{ fontSize: '0.76rem', color: 'var(--text-dim)' }}>
-                          Added: {dateFormatted} | {stats.totalLines || 0} Lines | {stats.wordCount || 0} Words
+                          Category: {doc.category} | Added: {dateFormatted} | {stats.totalLines || 0} Lines
                         </div>
                       </div>
                       <div style={{ display: 'flex', gap: '8px' }}>
@@ -623,7 +704,7 @@ export default function VeriMedApp() {
                           downloadFile(json, `${doc.id}-structured-schema.json`, 'application/json');
                         }}>📥 JSON</button>
                         {!doc.isSample && (
-                          <button className="btn btn-secondary" style={{ padding: '6px 10px', fontSize: '0.75rem', color: '#fb7185' }} title="Delete Document" onClick={() => handleDeleteDoc(doc.id)}>🗑️</button>
+                          <button className="btn btn-secondary" style={{ padding: '6px 10px', fontSize: '0.75rem', color: '#fb7185' }} title="Delete Document" onClick={() => handleDeleteDoc(doc.id, doc.targetFile)}>🗑️</button>
                         )}
                       </div>
                     </div>
@@ -649,10 +730,10 @@ export default function VeriMedApp() {
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
               <button className="btn btn-secondary" onClick={() => setShowExportModal(false)}>Cancel</button>
               <button className="btn btn-primary" onClick={() => {
-                const md = exportToMarkdown(activeDocData.title, parsedDoc, summaryData, auditResults);
-                downloadFile(md, `${activeDocData.id}-audit-report.md`, 'text/markdown');
+                const md = exportToMarkdown(activeDocData?.title || 'Report', parsedDoc, summaryData, auditResults);
+                downloadFile(md, `${activeDocData?.id || 'doc'}-audit-report.md`, 'text/markdown');
                 setShowExportModal(false);
-              }}>⬇️ Download Markdown</button>
+              }}>💾 Download Markdown</button>
             </div>
           </div>
         </div>
