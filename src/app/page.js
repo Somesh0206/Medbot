@@ -153,8 +153,8 @@ export default function VeriMedApp() {
     }
   };
 
-  const handleIngestCustomDoc = () => {
-    const title = customDocTitle.trim() || 'Custom Uploaded Medical Document';
+  const handleInsertCustomDoc = () => {
+    const title = customDocTitle.trim() || 'Custom Inserted Medical Document';
     const text = customDocText.trim();
     if (!text) {
       alert('Please paste or upload document text to audit.');
@@ -169,7 +169,7 @@ export default function VeriMedApp() {
       title,
       category: customDocCategory,
       targetFile: customTargetFile,
-      description: `Ingested ${new Date().toLocaleDateString()} — ${parsed.metadata.totalLines} lines (${customTargetFile === 'patients' ? 'Patient Record' : 'Hospital Policy'})`,
+      description: `Inserted ${new Date().toLocaleDateString()} — ${parsed.metadata.totalLines} lines (${customTargetFile === 'patients' ? 'Patient Record' : 'Hospital Policy'})`,
       addedAt: new Date().toISOString(),
       rawContent: text,
       isSample: false,
@@ -291,7 +291,7 @@ export default function VeriMedApp() {
             📁 Files: 📋 Patients ({patientDocsCount}) | 🏥 Policies ({policyDocsCount})
           </button>
           <button className="btn btn-primary" onClick={() => setShowUploadModal(true)}>
-            ➕ Ingest Document
+            ➕ Insert Document
           </button>
           <button className="btn btn-secondary" onClick={handleQuickDemo} disabled={isDemoRunning}>
             {isDemoRunning ? '⏳ Running...' : '⚡ Quick Demo'}
@@ -462,10 +462,23 @@ export default function VeriMedApp() {
 
             {activeTab === 'summary' && summaryData && (
               <div>
+                {/* Active Selected Document Banner */}
+                <div style={{ marginBottom: '16px', background: 'rgba(6, 182, 212, 0.1)', border: '1px solid rgba(6, 182, 212, 0.3)', borderRadius: '8px', padding: '12px 16px' }}>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--primary-cyan)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                    Executive Summary of Selected Document
+                  </div>
+                  <div style={{ fontSize: '1.05rem', fontWeight: 700, color: '#ffffff', fontFamily: 'var(--font-heading)', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    📄 {activeDocData?.title || 'Loaded Document'}
+                    <span className="badge badge-warning" style={{ fontSize: '0.68rem' }}>
+                      {activeDocData?.targetFile === 'patients' ? '📋 Patient Records File' : '🏥 Hospital Policies File'}
+                    </span>
+                  </div>
+                </div>
+
                 <div className="summary-stats-grid">
                   <div className="stat-card">
                     <span className="stat-label">Document Risk Level</span>
-                    <span className="stat-value" style={{ color: summaryData.stats.violations > 0 ? '#fb7185' : '#34d399' }}>
+                    <span className="stat-value" style={{ color: summaryData.stats.violations > 0 ? '#fb7185' : '#34d399', fontSize: '1.05rem' }}>
                       {summaryData.stats.riskLevel}
                     </span>
                   </div>
@@ -492,18 +505,21 @@ export default function VeriMedApp() {
 
                 <div className="summary-section">
                   <h4 style={{ color: 'var(--primary-cyan)', fontSize: '0.9rem', marginBottom: '8px', fontFamily: 'var(--font-heading)' }}>
-                    Verifiable Compliance Highlights
+                    Verifiable Compliance & Key Directives
                   </h4>
                   {summaryData.takeaways.map((takeaway, idx) => (
-                    <div key={idx} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', marginBottom: '8px' }}>
-                      <span style={{ color: 'var(--primary-cyan)' }}>•</span>
-                      <span style={{ fontSize: '0.84rem', color: '#e2e8f0', flex: 1 }}>{takeaway.text}</span>
-                      <span className="citation-pill" style={{ cursor: 'pointer' }} onClick={() => jumpToLine(takeaway.citation.startLine)}>
+                    <div key={idx} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', marginBottom: '10px', background: 'rgba(15, 23, 42, 0.4)', padding: '8px 12px', borderRadius: '6px', borderLeft: '3px solid var(--primary-cyan)' }}>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: '0.74rem', color: 'var(--primary-cyan)', fontWeight: 600 }}>[{takeaway.topic}]</div>
+                        <div style={{ fontSize: '0.84rem', color: '#e2e8f0', marginTop: '2px' }}>"{takeaway.text}"</div>
+                      </div>
+                      <span className="citation-pill" style={{ cursor: 'pointer', whiteSpace: 'nowrap' }} onClick={() => jumpToLine(takeaway.citation.startLine)}>
                         Line {takeaway.citation.startLine}
                       </span>
                     </div>
                   ))}
                 </div>
+
                 <div style={{ marginTop: '20px', display: 'flex', gap: '10px' }}>
                   <button className="btn btn-secondary" onClick={() => setShowExportModal(true)}>📤 Export Markdown</button>
                   <button className="btn btn-secondary" onClick={() => {
@@ -615,12 +631,12 @@ export default function VeriMedApp() {
         </div>
       </div>
 
-      {/* Upload Modal */}
+      {/* Upload/Insert Modal */}
       {showUploadModal && (
         <div className="modal-overlay" onClick={() => setShowUploadModal(false)}>
           <div className="modal-content" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <h3 style={{ fontFamily: 'var(--font-heading)', color: 'white' }}>Ingest Medical Document</h3>
+              <h3 style={{ fontFamily: 'var(--font-heading)', color: 'white' }}>Insert Medical Document</h3>
               <button style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', fontSize: '1.2rem' }} onClick={() => setShowUploadModal(false)}>✕</button>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
@@ -673,8 +689,8 @@ export default function VeriMedApp() {
                 <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Extracted Document Text Content</label>
                 <textarea className="search-input" style={{ width: '100%', height: '150px', resize: 'vertical' }} placeholder="Paste document text here or upload any PDF/Word/Text file above..." value={customDocText} onChange={e => setCustomDocText(e.target.value)}></textarea>
               </div>
-              <button className="btn btn-primary" style={{ justifyContent: 'center', marginTop: '10px' }} onClick={handleIngestCustomDoc}>
-                ⚡ Save to {customTargetFile === 'patients' ? 'Patient Records File' : 'Hospital Policies File'} & Audit
+              <button className="btn btn-primary" style={{ justifyContent: 'center', marginTop: '10px' }} onClick={handleInsertCustomDoc}>
+                ⚡ Insert into {customTargetFile === 'patients' ? 'Patient Records File' : 'Hospital Policies File'} & Audit
               </button>
             </div>
           </div>
