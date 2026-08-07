@@ -331,13 +331,42 @@ export default function VeriMedApp() {
                     key={line.lineNumber} 
                     id={`doc-line-${line.lineNumber}`}
                     className={`document-line ${isHighlighted ? 'highlighted' : ''}`}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'baseline',
+                      gap: '8px',
+                      padding: '6px 12px',
+                      borderBottom: '1px solid rgba(255, 255, 255, 0.04)',
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease',
+                      background: isHighlighted ? 'rgba(6, 182, 212, 0.22)' : 'transparent',
+                      borderLeft: isHighlighted ? '4px solid var(--primary-cyan)' : '4px solid transparent'
+                    }}
                     onClick={() => setActiveHighlightLine(line.lineNumber)}
                   >
-                    <span className="line-number">{line.lineNumber}</span>
-                    <div style={{ flex: 1 }}>
-                      {line.section && <span className="section-tag">[{line.section}]</span>}
-                      <span className="line-text">{line.text}</span>
-                    </div>
+                    <span 
+                      style={{
+                        fontFamily: 'var(--font-code)',
+                        fontSize: '0.78rem',
+                        fontWeight: 700,
+                        color: isHighlighted ? 'var(--primary-cyan)' : '#38bdf8',
+                        background: 'rgba(6, 182, 212, 0.12)',
+                        padding: '2px 6px',
+                        borderRadius: '4px',
+                        whiteSpace: 'nowrap',
+                        userSelect: 'none'
+                      }}
+                    >
+                      #{line.lineNumber}
+                    </span>
+                    <span style={{ fontSize: '0.84rem', color: isHighlighted ? '#ffffff' : '#cbd5e1', lineHeight: 1.5, flex: 1, wordBreak: 'break-word' }}>
+                      {line.section && (
+                        <span className="section-tag" style={{ marginRight: '6px', fontSize: '0.72rem' }}>
+                          [{line.section}]
+                        </span>
+                      )}
+                      {line.text}
+                    </span>
                   </div>
                 );
               })
