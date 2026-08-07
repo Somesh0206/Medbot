@@ -424,16 +424,25 @@ export default function VeriMedApp() {
             
             {activeTab === 'qa' && (
               <div className="qa-container">
+                <div style={{ marginBottom: '12px', fontSize: '0.82rem', color: 'var(--primary-cyan)', fontWeight: 500 }}>
+                  💬 Document Q&A Assistant — Querying "{activeDocData?.title || 'Inserted Document'}" ({parsedDoc?.metadata?.totalLines || 0} indexed lines)
+                </div>
                 <div className="suggested-prompts">
-                  <span className="prompt-chip" onClick={() => { setQaQuery('Are there any supervision cap violations?'); handleAskQuery('Are there any supervision cap violations?'); }}>Are there any supervision cap violations?</span>
-                  <span className="prompt-chip" onClick={() => { setQaQuery('Is PDMP querying mandatory?'); handleAskQuery('Is PDMP querying mandatory?'); }}>Is PDMP querying mandatory?</span>
-                  <span className="prompt-chip" onClick={() => { setQaQuery('What are the rules for interpreters?'); handleAskQuery('What are the rules for interpreters?'); }}>What are the rules for interpreters?</span>
+                  <span className="prompt-chip" onClick={() => { const q = 'What are the main requirements and rules in this document?'; setQaQuery(q); handleAskQuery(q); }}>
+                    📌 Main requirements & rules
+                  </span>
+                  <span className="prompt-chip" onClick={() => { const q = 'What emergency or safety procedures are listed?'; setQaQuery(q); handleAskQuery(q); }}>
+                    🚨 Emergency & safety rules
+                  </span>
+                  <span className="prompt-chip" onClick={() => { const q = 'Are there any mandatory compliance steps or logging required?'; setQaQuery(q); handleAskQuery(q); }}>
+                    📋 Mandatory compliance steps
+                  </span>
                 </div>
                 <div className="query-input-box">
                   <input 
                     type="text" 
                     className="search-input" 
-                    placeholder="Ask a question about this document..." 
+                    placeholder={`Ask any question from "${activeDocData?.title || 'inserted document'}"...`} 
                     value={qaQuery}
                     onChange={(e) => setQaQuery(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && handleAskQuery(qaQuery)}
@@ -445,7 +454,7 @@ export default function VeriMedApp() {
                   <div className="qa-response-card">
                     <div className="response-header">
                       <strong style={{ fontFamily: 'var(--font-heading)', color: 'var(--primary-cyan)', fontSize: '0.95rem' }}>
-                        Grounded Verification Response
+                        Grounded Answer Verification
                       </strong>
                       <div className="confidence-indicator">
                         <span>🛡️ {qaResponse.confidence}% Evidence Grounding</span>
@@ -460,12 +469,12 @@ export default function VeriMedApp() {
                       </button>
                     )}
                     <div style={{ fontWeight: 600, fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '6px' }}>
-                      Verbatim Source Excerpts:
+                      Verbatim Source Excerpts from Inserted Document:
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '14px' }}>
                       {qaResponse.excerpts.map((e, idx) => (
                         <div key={idx} style={{ background: 'rgba(10, 15, 26, 0.7)', padding: '8px 12px', borderLeft: '2px solid var(--primary-cyan)', fontFamily: 'var(--font-code)', fontSize: '0.76rem', color: '#94a3b8' }}>
-                          Line {e.lineNumber}: "{e.text}"
+                          Line {e.lineNumber} ({e.section}): "{e.text}"
                         </div>
                       ))}
                     </div>
@@ -478,7 +487,7 @@ export default function VeriMedApp() {
                   </div>
                 ) : (
                   <div style={{ textAlign: 'center', color: 'var(--text-dim)', padding: '40px 20px', fontSize: '0.88rem' }}>
-                    💬 Select a suggested question above or type a custom query to see grounded answers with verbatim line citations.
+                    💬 Select a suggested prompt above or type any custom question to get grounded answers with verbatim line citations directly from your inserted document.
                   </div>
                 )}
               </div>
