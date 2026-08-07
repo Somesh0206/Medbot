@@ -42,8 +42,9 @@ export default function HealioApp() {
   const [showExportModal, setShowExportModal] = useState(false);
   const [isExtractingFile, setIsExtractingFile] = useState(false);
 
-  // Mandatory Per-Session User Identity States (Prompts login on every refresh/restart)
+  // Mandatory Per-Session User Identity & Role States ('staff' | 'patient')
   const [userName, setUserName] = useState('');
+  const [userRole, setUserRole] = useState('staff'); // 'staff' or 'patient'
   const [showNameModal, setShowNameModal] = useState(true);
   const [nameInput, setNameInput] = useState('');
   const [showLogModal, setShowLogModal] = useState(false);
@@ -53,11 +54,12 @@ export default function HealioApp() {
   const importFileInputRef = useRef(null);
 
   // Helper to append a user activity log entry
-  const addLogEntry = (action, details, user = userName) => {
+  const addLogEntry = (action, details, user = userName, role = userRole) => {
     if (typeof window === 'undefined') return;
     const entry = {
       id: `log-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
       user: user || 'Anonymous User',
+      role: role === 'staff' ? 'Hospital Staff' : 'Patient',
       action,
       details,
       timestamp: new Date().toISOString()
@@ -131,16 +133,30 @@ export default function HealioApp() {
     }
     setUserName(trimmed);
     setShowNameModal(false);
-    addLogEntry('Session Started', 'Logged into Healio Platform', trimmed);
+    
+    // Auto-adjust default registry view filter based on selected user role
+    if (userRole === 'patient') {
+      setRegistryFileFilter('patients');
+    } else {
+      setRegistryFileFilter('all');
+    }
+
+    addLogEntry('Session Started', `Logged in as ${userRole === 'staff' ? 'Hospital Staff' : 'Patient'}`, trimmed, userRole);
   };
 
   const handleChangeUserName = () => {
-    const newName = prompt('Enter your name for Healio session logs:', userName);
+    const newName = prompt(`Enter your name for Healio session logs (${userRole === 'staff' ? 'Hospital Staff' : 'Patient'}):`, userName);
     if (newName && newName.trim()) {
       const trimmed = newName.trim();
       setUserName(trimmed);
-      addLogEntry('Identity Changed', `Switched active user identity to "${trimmed}"`, trimmed);
+      addLogEntry('Identity Changed', `Switched active identity to "${trimmed}" (${userRole})`, trimmed, userRole);
     }
+  };
+
+  const handleSwitchRole = () => {
+    setShowLogModal(false);
+    setNameInput(userName);
+    setShowNameModal(true);
   };
 
   const reloadAllDocs = (filter = registryFileFilter) => {
@@ -314,8 +330,8 @@ export default function HealioApp() {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <button className="btn btn-secondary" style={{ borderColor: 'var(--primary-cyan)', color: 'white' }} onClick={() => setShowLogModal(true)}>
-            👤 User Log: <strong style={{ color: 'var(--primary-cyan)', marginLeft: '2px' }}>{userName || 'Guest'}</strong>
+          <button className="btn btn-secondary" style={{ borderColor: userRole === 'staff' ? 'var(--primary-cyan)' : 'var(--accent-emerald)', color: 'white' }} onClick={() => setShowLogModal(true)}>
+            👤 {userRole === 'staff' ? '🏥 Staff' : '👤 Patient'}: <strong style={{ color: userRole === 'staff' ? 'var(--primary-cyan)' : '#34d399', marginLeft: '2px' }}>{userName || 'Guest'}</strong>
           </button>
 
           <button className="btn btn-secondary" onClick={() => setShowRegistryModal(true)}>
@@ -355,18 +371,18 @@ export default function HealioApp() {
         {activePage === 'home' && (
           <div>
             <div className="healio-hero">
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', flexWrap: 'wrap' }}>
                 <span className="badge badge-info" style={{ fontSize: '0.75rem', padding: '4px 10px' }}>✨ Healio Clinical AI Platform v2.0</span>
                 {userName && (
-                  <span className="badge badge-success" style={{ fontSize: '0.75rem', padding: '4px 10px' }}>
-                    👤 Active Session User: {userName}
+                  <span className={`badge ${userRole === 'staff' ? 'badge-info' : 'badge-success'}`} style={{ fontSize: '0.75rem', padding: '4px 10px' }}>
+                    {userRole === 'staff' ? '🏥 Hospital Staff' : '👤 Patient'}: {userName}
                   </span>
                 )}
               </div>
               <h1 className="healio-title">Healio</h1>
               <div className="healio-subtitle">Next-Generation Verifiable Clinical Intelligence & Medical Governance Studio</div>
               <p className="healio-description">
-                Healio is an advanced clinical audit and governance platform designed for medical boards, hospital administrators, healthcare providers, and clinical auditors. It parses multi-format medical records and hospital policies (PDF, Word, Text, RTF, CSV, JSON, HTML) into line-indexed statutory audit matrices, grounded evidence Q&A engines, and dual-file document registries with 100% verifiable source line citations.
+                Healio is an advanced clinical audit and governance platform designed for medical boards, hospital administrators, healthcare providers, and patients. It parses multi-format medical records and hospital policies (PDF, Word, Text, RTF, CSV, JSON, HTML) into line-indexed statutory audit matrices, grounded evidence Q&A engines, and dual-file document registries with 100% verifiable source line citations.
               </p>
 
               <div style={{ display: 'flex', gap: '12px', marginTop: '20px', flexWrap: 'wrap' }}>
@@ -411,7 +427,7 @@ export default function HealioApp() {
             {/* Core Functions Feature Grid */}
             <div style={{ marginBottom: '12px', marginTop: '24px' }}>
               <h3 style={{ fontFamily: 'var(--font-heading)', color: 'white', fontSize: '1.2rem' }}>
-                Healio Dedicated Function Workspaces
+                Healio Dedicated Function Workspaces ({userRole === 'staff' ? '🏥 Hospital Staff View' : '👤 Patient View'})
               </h3>
               <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
                 Select any dedicated page below to perform clean, uncluttered medical governance workflows.
@@ -802,27 +818,65 @@ export default function HealioApp() {
         )}
       </main>
 
-      {/* Mandatory Per-Session User Name Entry Modal (Prompts login on every refresh/restart) */}
+      {/* Mandatory Per-Session User Identity & Role Selection Login Modal */}
       {showNameModal && (
         <div className="modal-overlay">
-          <div className="modal-content" style={{ textAlign: 'center', width: '480px' }}>
+          <div className="modal-content" style={{ textAlign: 'center', width: '520px' }}>
             <div className="brand-logo" style={{ margin: '0 auto 12px auto', width: '48px', height: '48px', fontSize: '1.4rem' }}>H</div>
-            <h2 style={{ fontFamily: 'var(--font-heading)', color: 'white', fontSize: '1.4rem', marginBottom: '6px' }}>Welcome to Healio</h2>
-            <p style={{ fontSize: '0.86rem', color: 'var(--text-muted)', marginBottom: '20px' }}>
-              Please enter your full name or title to log in to Healio. A name entry is required on every new session / page refresh.
+            <h2 style={{ fontFamily: 'var(--font-heading)', color: 'white', fontSize: '1.4rem', marginBottom: '4px' }}>Welcome to Healio</h2>
+            <p style={{ fontSize: '0.84rem', color: 'var(--text-muted)', marginBottom: '18px' }}>
+              Please select your role and enter your name to log in to Healio.
             </p>
+
+            {/* Role Selection Options */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '18px' }}>
+              <div 
+                style={{
+                  background: userRole === 'staff' ? 'rgba(6, 182, 212, 0.2)' : 'rgba(15, 23, 42, 0.6)',
+                  border: userRole === 'staff' ? '2px solid var(--primary-cyan)' : '1px solid var(--border-card)',
+                  borderRadius: '12px',
+                  padding: '14px 10px',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                  textAlign: 'center'
+                }}
+                onClick={() => setUserRole('staff')}
+              >
+                <div style={{ fontSize: '1.8rem', marginBottom: '4px' }}>🏥</div>
+                <div style={{ fontWeight: 700, fontSize: '0.92rem', color: 'white', fontFamily: 'var(--font-heading)' }}>Hospital Staff</div>
+                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '2px' }}>Clinician, Auditor, Admin</div>
+              </div>
+
+              <div 
+                style={{
+                  background: userRole === 'patient' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(15, 23, 42, 0.6)',
+                  border: userRole === 'patient' ? '2px solid var(--accent-emerald)' : '1px solid var(--border-card)',
+                  borderRadius: '12px',
+                  padding: '14px 10px',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                  textAlign: 'center'
+                }}
+                onClick={() => setUserRole('patient')}
+              >
+                <div style={{ fontSize: '1.8rem', marginBottom: '4px' }}>👤</div>
+                <div style={{ fontWeight: 700, fontSize: '0.92rem', color: 'white', fontFamily: 'var(--font-heading)' }}>Patient</div>
+                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '2px' }}>Patient, Caregiver, User</div>
+              </div>
+            </div>
+
             <input 
               type="text" 
               className="search-input" 
               style={{ width: '100%', padding: '12px', fontSize: '1rem', textAlign: 'center', marginBottom: '16px' }} 
-              placeholder="e.g. Dr. Somesh / Auditor Jane Doe" 
+              placeholder={userRole === 'staff' ? 'e.g. Dr. Somesh / Auditor Jane Doe' : 'e.g. Patient John Smith'} 
               value={nameInput}
               onChange={e => setNameInput(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && handleSaveUserName()}
               autoFocus
             />
-            <button className="btn btn-primary" style={{ width: '100%', justifyContent: 'center', padding: '10px', fontSize: '0.95rem' }} onClick={handleSaveUserName}>
-              Login to Healio ➔
+            <button className="btn btn-primary" style={{ width: '100%', justifyContent: 'center', padding: '12px', fontSize: '0.95rem' }} onClick={handleSaveUserName}>
+              Login as {userRole === 'staff' ? '🏥 Hospital Staff' : '👤 Patient'} ➔
             </button>
           </div>
         </div>
@@ -840,14 +894,21 @@ export default function HealioApp() {
               <button style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', fontSize: '1.2rem' }} onClick={() => setShowLogModal(false)}>✕</button>
             </div>
 
-            <div style={{ background: 'rgba(6, 182, 212, 0.1)', border: '1px solid rgba(6, 182, 212, 0.3)', borderRadius: '8px', padding: '12px 16px', marginBottom: '16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ background: 'rgba(6, 182, 212, 0.1)', border: '1px solid rgba(6, 182, 212, 0.3)', borderRadius: '8px', padding: '12px 16px', marginBottom: '16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
               <div>
-                <div style={{ fontSize: '0.75rem', color: 'var(--primary-cyan)', fontWeight: 600 }}>ACTIVE USER IDENTITY</div>
-                <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'white', fontFamily: 'var(--font-heading)' }}>👤 {userName || 'Guest User'}</div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--primary-cyan)', fontWeight: 600 }}>ACTIVE SESSION USER IDENTITY</div>
+                <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'white', fontFamily: 'var(--font-heading)' }}>
+                  {userRole === 'staff' ? '🏥 Staff: ' : '👤 Patient: '} {userName || 'Guest User'}
+                </div>
               </div>
-              <button className="btn btn-secondary" style={{ fontSize: '0.78rem' }} onClick={handleChangeUserName}>
-                ✏️ Change Name
-              </button>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button className="btn btn-secondary" style={{ fontSize: '0.78rem' }} onClick={handleChangeUserName}>
+                  ✏️ Change Name
+                </button>
+                <button className="btn btn-primary" style={{ fontSize: '0.78rem' }} onClick={handleSwitchRole}>
+                  🔄 Switch Role & Login
+                </button>
+              </div>
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '350px', overflowY: 'auto', paddingRight: '4px' }}>
@@ -859,7 +920,7 @@ export default function HealioApp() {
                     <div style={{ flex: 1 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '2px' }}>
                         <span style={{ fontWeight: 700, color: 'var(--primary-cyan)', fontSize: '0.85rem' }}>{log.action}</span>
-                        <span className="badge badge-info" style={{ fontSize: '0.68rem' }}>👤 {log.user}</span>
+                        <span className="badge badge-info" style={{ fontSize: '0.68rem' }}>👤 {log.user} ({log.role || 'Staff'})</span>
                       </div>
                       <div style={{ fontSize: '0.8rem', color: '#cbd5e1' }}>{log.details}</div>
                     </div>
