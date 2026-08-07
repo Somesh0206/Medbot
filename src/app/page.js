@@ -42,9 +42,9 @@ export default function HealioApp() {
   const [showExportModal, setShowExportModal] = useState(false);
   const [isExtractingFile, setIsExtractingFile] = useState(false);
 
-  // Mandatory User Identity & Log States
+  // Mandatory Per-Session User Identity States (Prompts login on every refresh/restart)
   const [userName, setUserName] = useState('');
-  const [showNameModal, setShowNameModal] = useState(false);
+  const [showNameModal, setShowNameModal] = useState(true);
   const [nameInput, setNameInput] = useState('');
   const [showLogModal, setShowLogModal] = useState(false);
   const [activityLogs, setActivityLogs] = useState([]);
@@ -74,18 +74,15 @@ export default function HealioApp() {
   };
 
   useEffect(() => {
-    // Check saved user identity
+    // ALWAYS force name login prompt on every page reload / refresh / restart
     if (typeof window !== 'undefined') {
-      const savedUser = localStorage.getItem('healio_user_name');
       const savedLogsRaw = localStorage.getItem('healio_user_logs');
       const existingLogs = savedLogsRaw ? JSON.parse(savedLogsRaw) : [];
       setActivityLogs(existingLogs);
-
-      if (savedUser && savedUser.trim()) {
-        setUserName(savedUser.trim());
-      } else {
-        setShowNameModal(true);
-      }
+      
+      // Reset active user session to require fresh name login on reload
+      setUserName('');
+      setShowNameModal(true);
     }
 
     // Initialization: Seed sample docs if empty, load docs into 2 separate files
@@ -129,11 +126,10 @@ export default function HealioApp() {
   const handleSaveUserName = () => {
     const trimmed = nameInput.trim();
     if (!trimmed) {
-      alert('Please enter your name to access Healio.');
+      alert('Please enter your name to log in to Healio.');
       return;
     }
     setUserName(trimmed);
-    localStorage.setItem('healio_user_name', trimmed);
     setShowNameModal(false);
     addLogEntry('Session Started', 'Logged into Healio Platform', trimmed);
   };
@@ -143,7 +139,6 @@ export default function HealioApp() {
     if (newName && newName.trim()) {
       const trimmed = newName.trim();
       setUserName(trimmed);
-      localStorage.setItem('healio_user_name', trimmed);
       addLogEntry('Identity Changed', `Switched active user identity to "${trimmed}"`, trimmed);
     }
   };
@@ -364,7 +359,7 @@ export default function HealioApp() {
                 <span className="badge badge-info" style={{ fontSize: '0.75rem', padding: '4px 10px' }}>✨ Healio Clinical AI Platform v2.0</span>
                 {userName && (
                   <span className="badge badge-success" style={{ fontSize: '0.75rem', padding: '4px 10px' }}>
-                    👤 Logged in as: {userName}
+                    👤 Active Session User: {userName}
                   </span>
                 )}
               </div>
@@ -807,14 +802,14 @@ export default function HealioApp() {
         )}
       </main>
 
-      {/* Mandatory User Name Entry Modal */}
+      {/* Mandatory Per-Session User Name Entry Modal (Prompts login on every refresh/restart) */}
       {showNameModal && (
         <div className="modal-overlay">
           <div className="modal-content" style={{ textAlign: 'center', width: '480px' }}>
             <div className="brand-logo" style={{ margin: '0 auto 12px auto', width: '48px', height: '48px', fontSize: '1.4rem' }}>H</div>
             <h2 style={{ fontFamily: 'var(--font-heading)', color: 'white', fontSize: '1.4rem', marginBottom: '6px' }}>Welcome to Healio</h2>
             <p style={{ fontSize: '0.86rem', color: 'var(--text-muted)', marginBottom: '20px' }}>
-              Please enter your full name or title to access the Clinical AI & Governance Studio. Your name will be attached to session audit logs.
+              Please enter your full name or title to log in to Healio. A name entry is required on every new session / page refresh.
             </p>
             <input 
               type="text" 
@@ -827,7 +822,7 @@ export default function HealioApp() {
               autoFocus
             />
             <button className="btn btn-primary" style={{ width: '100%', justifyContent: 'center', padding: '10px', fontSize: '0.95rem' }} onClick={handleSaveUserName}>
-              Enter Healio Platform ➔
+              Login to Healio ➔
             </button>
           </div>
         </div>
