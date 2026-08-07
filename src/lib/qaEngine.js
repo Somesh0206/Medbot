@@ -1,7 +1,7 @@
 /**
  * Grounded Q&A Engine with Citation Verification
  * Answers queries strictly using parsed document lines and compliance rules.
- * Supports dynamic Q&A on any custom-inserted medical or policy documents.
+ * Supports dynamic Q&A on any custom-inserted medical or policy documents (PDF, Word, TXT, etc.).
  */
 
 export function answerGroundedQuery(query, parsedDoc, auditResults) {
@@ -87,7 +87,7 @@ export function answerGroundedQuery(query, parsedDoc, auditResults) {
 
   if (topMatches.length === 0) {
     return {
-      answer: `I could not locate explicit information regarding "${cleanQuery}" in the document "${parsedDoc.metadata.title || parsedDoc.docId}". To maintain 100% verifiable accuracy and prevent hallucination, answers are strictly generated from verbatim lines in your inserted document.`,
+      answer: `I could not locate explicit information regarding "${cleanQuery}" in the document "${parsedDoc.metadata.title || parsedDoc.docId}". To maintain 100% verifiable accuracy and prevent hallucination, answers are strictly generated from verbatim lines in your loaded document.`,
       confidence: 10,
       excerpts: [],
       reasoning: [
@@ -110,17 +110,13 @@ export function answerGroundedQuery(query, parsedDoc, auditResults) {
   const startLine = sortedExcerpts[0].lineNumber;
   const endLine = sortedExcerpts[sortedExcerpts.length - 1].lineNumber;
 
-  // Synthesize answer dynamically from the actual verbatim document content
-  const primaryPassages = sortedExcerpts.map((e) => e.text).join(" ");
-  
   // Format clean answer output
-  let answerText = `Based on the document "${parsedDoc.metadata.title || 'Inserted Document'}" (Lines ${startLine}–${endLine}):\n\n`;
+  let answerText = `Based on the loaded document "${parsedDoc.metadata.title || 'Loaded Document'}" (Lines ${startLine}–${endLine}):\n\n`;
   
   sortedExcerpts.forEach((e) => {
     answerText += `• [Line ${e.lineNumber}] ${e.text}\n`;
   });
 
-  const topScore = topMatches[0].score;
   const confidence = Math.min(98, Math.max(65, 75 + topMatches[0].matchesCount * 6 + Math.min(topMatches.length * 4, 15)));
 
   const reasoning = [
@@ -137,4 +133,55 @@ export function answerGroundedQuery(query, parsedDoc, auditResults) {
     excerpts: sortedExcerpts,
     reasoning
   };
+}
+
+/**
+ * Dynamically generates suggested question prompts based on the content & sections of the loaded document (PDF/Word/Text).
+ */
+export function generateDocumentQuestions(parsedDoc, activeDocData) {
+  if (!parsedDoc || !parsedDoc.lines || parsedDoc.lines.length === 0) {
+    return [
+      "What are the main rules in this document?",
+      "What emergency or safety procedures are listed?",
+      "What compliance logging steps are required?"
+    ];
+  }
+
+  const title = activeDocData?.title || parsedDoc.metadata?.title || 'Loaded Document';
+  const sections = (parsedDoc.sections || []).map(s => typeof s === 'string' ? s : (s.name || s.title)).filter(Boolean);
+  
+  const prompts = [];
+  const textLower = parsedDoc.lines.map(l => l.text).join(' ').toLowerCase();
+
+  if (textLower.includes('supervis') || textLower.includes('pa') || textLower.includes('ratio')) {
+    prompts.push("What are the physician supervision cap & PA limits?");
+  }
+  if (textLower.includes('pdmp') || textLower.includes('narcotic') || textLower.includes('prescription')) {
+    prompts.push("What are the mandatory PDMP lookup & prescription rules?");
+  }
+  if (textLower.includes('emergency') || textLower.includes('dispatch') || textLower.includes('address')) {
+    prompts.push("What are the emergency escalation & 911 dispatch protocols?");
+  }
+  if (textLower.includes('consent') || textLower.includes('interpreter') || textLower.includes('surgical')) {
+    prompts.push("What are the informed consent & interpreter mandates?");
+  }
+  if (textLower.includes('hipaa') || textLower.includes('privacy') || textLower.includes('encryption') || textLower.includes('ephi')) {
+    prompts.push("What are the HIPAA data privacy & encryption rules?");
+  }
+
+  // Add section-derived questions if available
+  sections.slice(0, 2).forEach(sec => {
+    if (sec && sec.length < 40) {
+      prompts.push(`What key guidelines apply to section "${sec}"?`);
+    }
+  });
+
+  // Always include fallback dynamic prompts if less than 3
+  if (prompts.length < 3) {
+    prompts.push(`What are the main clinical/operational requirements in this document?`);
+    prompts.push("What mandatory compliance logs or records are required?");
+    prompts.push("What exceptions or waiver clauses are specified?");
+  }
+
+  return Array.from(new Set(prompts)).slice(0, 4);
 }

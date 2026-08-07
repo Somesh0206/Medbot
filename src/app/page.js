@@ -4,7 +4,7 @@ import { SAMPLE_DOCUMENTS } from '@/lib/sampleData';
 import { parseDocumentText } from '@/lib/parser';
 import { runComplianceAudit } from '@/lib/auditEngine';
 import { generateVerifiableSummary } from '@/lib/summaryEngine';
-import { answerGroundedQuery } from '@/lib/qaEngine';
+import { answerGroundedQuery, generateDocumentQuestions } from '@/lib/qaEngine';
 import { exportToMarkdown, exportToJSON, downloadFile } from '@/lib/exportUtils';
 import {
   getStoredDocuments,
@@ -100,6 +100,14 @@ export default function VeriMedApp() {
     setQaQuery('');
     setDocSearchQuery('');
     setActiveHighlightLine(null);
+
+    // Scroll Indexed Document Stream to top when new PDF/document is loaded
+    setTimeout(() => {
+      const streamContainer = document.querySelector('.document-stream');
+      if (streamContainer) {
+        streamContainer.scrollTop = 0;
+      }
+    }, 50);
   };
 
   const jumpToLine = (startLine, endLine = startLine) => {
@@ -264,6 +272,7 @@ export default function VeriMedApp() {
 
   const patientDocsCount = getStoredDocuments('patients').length;
   const policyDocsCount = getStoredDocuments('policies').length;
+  const dynamicQuestions = generateDocumentQuestions(parsedDoc, activeDocData);
 
   return (
     <div>
@@ -292,13 +301,18 @@ export default function VeriMedApp() {
 
       {/* Main Workspace Layout */}
       <div className="main-layout">
-        {/* Left Panel: Document Viewer */}
+        {/* Left Panel: Document Viewer (Indexed Document Stream) */}
         <div className="left-panel">
           <div className="panel-header">
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', marginBottom: '8px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                 <h2 style={{ fontSize: '1rem', fontFamily: 'var(--font-heading)' }}>Indexed Document Stream</h2>
                 <span className="badge badge-info">{parsedDoc?.metadata?.totalLines || 0} Lines</span>
+                {activeDocData?.title && (
+                  <span className="badge badge-success" style={{ fontSize: '0.68rem', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={activeDocData.title}>
+                    📄 {activeDocData.title}
+                  </span>
+                )}
                 {activeDocData?.targetFile && (
                   <span className="badge badge-warning" style={{ fontSize: '0.68rem' }}>
                     {activeDocData.targetFile === 'patients' ? '📋 Patient Records File' : '🏥 Hospital Policies File'}
@@ -311,7 +325,7 @@ export default function VeriMedApp() {
               <input 
                 type="text" 
                 className="search-input" 
-                placeholder="Search indexed verbatim lines..." 
+                placeholder="Search indexed verbatim lines in loaded document..." 
                 value={docSearchQuery}
                 onChange={(e) => setDocSearchQuery(e.target.value)}
               />
@@ -384,7 +398,7 @@ export default function VeriMedApp() {
               📊 Executive Summary
             </button>
             <button className={`tab-btn ${activeTab === 'qa' ? 'active' : ''}`} onClick={() => setActiveTab('qa')}>
-              💬 Grounded Q&A
+              💬 Grounded Q&A ({dynamicQuestions.length} Topics)
             </button>
             <button className={`tab-btn ${activeTab === 'schema' ? 'active' : ''}`} onClick={() => setActiveTab('schema')}>
               ⚙️ JSON Schema
@@ -400,7 +414,7 @@ export default function VeriMedApp() {
                       Compliance & Statutory Rules Matrix
                     </h3>
                     <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                      Automated audit findings with verbatim source citations
+                      Automated audit findings for "{activeDocData?.title || 'Loaded Document'}" with verbatim line citations
                     </span>
                   </div>
                   <button className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '0.78rem' }} onClick={() => setShowExportModal(true)}>
@@ -503,24 +517,34 @@ export default function VeriMedApp() {
             {activeTab === 'qa' && (
               <div className="qa-container">
                 <div style={{ marginBottom: '12px', fontSize: '0.82rem', color: 'var(--primary-cyan)', fontWeight: 500 }}>
-                  💬 Document Q&A Assistant — Querying "{activeDocData?.title || 'Inserted Document'}" ({parsedDoc?.metadata?.totalLines || 0} indexed lines)
+                  💬 Document Q&A Assistant — Querying Loaded Document: <strong>"{activeDocData?.title || 'Loaded Document'}"</strong> ({parsedDoc?.metadata?.totalLines || 0} indexed lines)
                 </div>
-                <div className="suggested-prompts">
-                  <span className="prompt-chip" onClick={() => { const q = 'What are the main requirements and rules in this document?'; setQaQuery(q); handleAskQuery(q); }}>
-                    📌 Main requirements & rules
-                  </span>
-                  <span className="prompt-chip" onClick={() => { const q = 'What emergency or safety procedures are listed?'; setQaQuery(q); handleAskQuery(q); }}>
-                    🚨 Emergency & safety rules
-                  </span>
-                  <span className="prompt-chip" onClick={() => { const q = 'Are there any mandatory compliance steps or logging required?'; setQaQuery(q); handleAskQuery(q); }}>
-                    📋 Mandatory compliance steps
-                  </span>
+
+                <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '8px' }}>
+                  Questions relevant to "{activeDocData?.title || 'Loaded Document'}":
                 </div>
+
+                <div className="suggested-prompts" style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '14px' }}>
+                  {dynamicQuestions.map((qText, idx) => (
+                    <span 
+                      key={idx} 
+                      className="prompt-chip" 
+                      style={{ cursor: 'pointer', background: 'rgba(6, 182, 212, 0.12)', border: '1px solid rgba(6, 182, 212, 0.3)', color: '#e0f2fe' }}
+                      onClick={() => { 
+                        setQaQuery(qText); 
+                        handleAskQuery(qText); 
+                      }}
+                    >
+                      💡 {qText}
+                    </span>
+                  ))}
+                </div>
+
                 <div className="query-input-box">
                   <input 
                     type="text" 
                     className="search-input" 
-                    placeholder={`Ask any question from "${activeDocData?.title || 'inserted document'}"...`} 
+                    placeholder={`Ask any question from loaded document "${activeDocData?.title || 'document'}"...`} 
                     value={qaQuery}
                     onChange={(e) => setQaQuery(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && handleAskQuery(qaQuery)}
@@ -547,7 +571,7 @@ export default function VeriMedApp() {
                       </button>
                     )}
                     <div style={{ fontWeight: 600, fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '6px' }}>
-                      Verbatim Source Excerpts from Inserted Document:
+                      Verbatim Source Excerpts from Loaded Document:
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '14px' }}>
                       {qaResponse.excerpts.map((e, idx) => (
@@ -565,7 +589,7 @@ export default function VeriMedApp() {
                   </div>
                 ) : (
                   <div style={{ textAlign: 'center', color: 'var(--text-dim)', padding: '40px 20px', fontSize: '0.88rem' }}>
-                    💬 Select a suggested prompt above or type any custom question to get grounded answers with verbatim line citations directly from your inserted document.
+                    💬 Select any of the loaded document questions above or type a custom query to get grounded answers with verbatim line citations.
                   </div>
                 )}
               </div>
