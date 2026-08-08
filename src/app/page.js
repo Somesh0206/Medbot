@@ -13,6 +13,7 @@ import {
   deleteDocumentFromRegistry
 } from '@/lib/storageEngine';
 import { extractTextFromFile } from '@/lib/fileExtractor';
+import { splitDualDocument } from '@/lib/docDivider';
 
 export default function HealioApp() {
   const [allDocs, setAllDocs] = useState([]);
@@ -39,7 +40,7 @@ export default function HealioApp() {
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [customDocTitle, setCustomDocTitle] = useState('');
   const [customDocCategory, setCustomDocCategory] = useState('General');
-  const [customTargetFile, setCustomTargetFile] = useState('patients'); // patients, policies
+  const [customTargetFile, setCustomTargetFile] = useState('auto'); // auto, patients, policies
   const [customDocText, setCustomDocText] = useState('');
   
   const [showExportModal, setShowExportModal] = useState(false);
@@ -245,6 +246,74 @@ export default function HealioApp() {
       alert('Please paste or upload document text to audit.');
       return;
     }
+
+    const dualResult = splitDualDocument(text, title);
+
+    if (customTargetFile === 'auto' || dualResult.containsDual) {
+      if (dualResult.containsDual) {
+        // Create Patient Record Document
+        const patientDocId = `custom-patient-${Date.now()}`;
+        const patientParsed = parseDocumentText(dualResult.patientContent, patientDocId);
+        const patientAudit = runComplianceAudit(patientParsed);
+        const patientSummary = generateVerifiableSummary(patientParsed, patientAudit);
+        const patientDocRecord = {
+          id: patientDocId,
+          title: dualResult.patientTitle,
+          category: 'Patient Records',
+          targetFile: 'patients',
+          description: `Extracted Patient Record — ${patientParsed.metadata.totalLines} lines`,
+          addedAt: new Date().toISOString(),
+          rawContent: dualResult.patientContent,
+          isSample: false,
+          structuredData: {
+            metadata: patientParsed.metadata,
+            sections: patientParsed.sections,
+            summary: patientSummary,
+            auditResults: patientAudit
+          }
+        };
+
+        // Create Hospital Policy Document
+        const policyDocId = `custom-policy-${Date.now()}`;
+        const policyParsed = parseDocumentText(dualResult.policyContent, policyDocId);
+        const policyAudit = runComplianceAudit(policyParsed);
+        const policySummary = generateVerifiableSummary(policyParsed, policyAudit);
+        const policyDocRecord = {
+          id: policyDocId,
+          title: dualResult.policyTitle,
+          category: 'Regulatory Compliance',
+          targetFile: 'policies',
+          description: `Extracted Hospital Policy — ${policyParsed.metadata.totalLines} lines`,
+          addedAt: new Date().toISOString(),
+          rawContent: dualResult.policyContent,
+          isSample: false,
+          structuredData: {
+            metadata: policyParsed.metadata,
+            sections: policyParsed.sections,
+            summary: policySummary,
+            auditResults: policyAudit
+          }
+        };
+
+        // Save both records to their respective registry files!
+        saveDocumentToRegistry(patientDocRecord, 'patients');
+        saveDocumentToRegistry(policyDocRecord, 'policies');
+        reloadAllDocs();
+        setShowUploadModal(false);
+        setCustomDocText('');
+        setCustomDocTitle('');
+
+        alert(`✨ Dual Document Auto-Separation Complete!\n\nDetected both Patient Records and Hospital Policies in submitted file.\n\n1. 📋 Stored in Patient Records Registry: "${dualResult.patientTitle}" (${dualResult.summaryStats.patientLinesCount} lines)\n2. 🏥 Stored in Hospital Policies Registry: "${dualResult.policyTitle}" (${dualResult.summaryStats.policyLinesCount} lines)`);
+
+        addLogEntry('Auto-Split Dual Document', `Separated "${title}" into Patient Records Registry and Hospital Policies Registry`);
+        handleLoadDocument(patientDocRecord);
+        setActivePage('audit');
+        return;
+      }
+    }
+
+    // Single document fallback if auto selected but no dual content, or if user explicitly chose single target
+    const targetFile = customTargetFile === 'auto' ? 'policies' : customTargetFile;
     const docId = `custom-doc-${Date.now()}`;
     const parsed = parseDocumentText(text, docId);
     const audit = runComplianceAudit(parsed);
@@ -253,8 +322,8 @@ export default function HealioApp() {
       id: docId,
       title,
       category: customDocCategory,
-      targetFile: customTargetFile,
-      description: `Inserted ${new Date().toLocaleDateString()} — ${parsed.metadata.totalLines} lines (${customTargetFile === 'patients' ? 'Patient Record' : 'Hospital Policy'})`,
+      targetFile,
+      description: `Inserted ${new Date().toLocaleDateString()} — ${parsed.metadata.totalLines} lines (${targetFile === 'patients' ? 'Patient Record' : 'Hospital Policy'})`,
       addedAt: new Date().toISOString(),
       rawContent: text,
       isSample: false,
@@ -265,15 +334,16 @@ export default function HealioApp() {
         auditResults: audit
       }
     };
-    saveDocumentToRegistry(docRecord, customTargetFile);
+    saveDocumentToRegistry(docRecord, targetFile);
     reloadAllDocs();
     setShowUploadModal(false);
     setCustomDocText('');
     setCustomDocTitle('');
-    addLogEntry('Inserted New Document', `Inserted "${title}" into ${customTargetFile === 'patients' ? 'Patient Records File' : 'Hospital Policies File'}`);
+    addLogEntry('Inserted New Document', `Inserted "${title}" into ${targetFile === 'patients' ? 'Patient Records File' : 'Hospital Policies File'}`);
     handleLoadDocument(docRecord);
     setActivePage('audit');
   };
+
 
   const handleCustomFileUpload = async (e) => {
     const file = e.target.files[0];
@@ -1136,13 +1206,14 @@ export default function HealioApp() {
               <div>
                 <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Target Storage Registry File</label>
                 <select className="search-input" style={{ width: '100%', borderColor: 'var(--primary-cyan)' }} value={customTargetFile} onChange={e => setCustomTargetFile(e.target.value)}>
+                  <option value="auto">🔀 Auto-Detect & Split Dual Document (Patients + Policies)</option>
                   <option value="patients">📋 Patient Records File</option>
                   <option value="policies">🏥 Hospital Policies File</option>
                 </select>
               </div>
               <div>
                 <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Document Title</label>
-                <input type="text" className="search-input" style={{ width: '100%' }} value={customDocTitle} onChange={e => setCustomDocTitle(e.target.value)} placeholder="e.g. Patient Clinical History / Telemedicine SOP" />
+                <input type="text" className="search-input" style={{ width: '100%' }} value={customDocTitle} onChange={e => setCustomDocTitle(e.target.value)} placeholder="e.g. Combined Patient History & Hospital Policy / SOP" />
               </div>
               <div>
                 <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Category</label>
@@ -1183,7 +1254,7 @@ export default function HealioApp() {
                 <textarea className="search-input" style={{ width: '100%', height: '150px', resize: 'vertical' }} placeholder="Paste document text here or upload any PDF/Word/Text file above..." value={customDocText} onChange={e => setCustomDocText(e.target.value)}></textarea>
               </div>
               <button className="btn btn-primary" style={{ justifyContent: 'center', marginTop: '10px' }} onClick={handleInsertCustomDoc}>
-                ⚡ Insert into {customTargetFile === 'patients' ? 'Patient Records File' : 'Hospital Policies File'} & Audit
+                ⚡ {customTargetFile === 'auto' ? '🔀 Auto-Split & Insert into Registries' : `Insert into ${customTargetFile === 'patients' ? 'Patient Records File' : 'Hospital Policies File'}`}
               </button>
             </div>
           </div>
