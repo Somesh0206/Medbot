@@ -58,6 +58,8 @@ export default function HealioApp() {
   const [botQueryResult, setBotQueryResult] = useState(null);
   const [isBotSearching, setIsBotSearching] = useState(false);
   const [botQueryHistory, setBotQueryHistory] = useState([]);
+  const [useGeminiMode, setUseGeminiMode] = useState(false);
+
 
 
 
@@ -471,24 +473,28 @@ export default function HealioApp() {
     addLogEntry('Triggered Emergency SOS Call', 'Opened 112 Medical Emergency Call Dispatch Portal');
   };
 
-  const handleExecuteBotQuery = (queryToSearch) => {
+  const handleExecuteBotQuery = async (queryToSearch, forceGeminiOverride) => {
     const term = (queryToSearch || botSearchInput).trim();
     if (!term) return;
 
-    setIsBotSearching(true);
-    setTimeout(() => {
-      const summaryPayload = synthesizeMedicalQuerySummary(term, allDocs, parsedDoc);
-      setBotQueryResult(summaryPayload);
-      setIsBotSearching(false);
+    const isGemini = typeof forceGeminiOverride === 'boolean' ? forceGeminiOverride : useGeminiMode;
 
+    setIsBotSearching(true);
+    try {
+      const summaryPayload = await synthesizeMedicalQuerySummary(term, allDocs, parsedDoc, isGemini);
+      setBotQueryResult(summaryPayload);
       setBotQueryHistory(prev => {
         const filtered = prev.filter(q => q.toLowerCase() !== term.toLowerCase());
         return [term, ...filtered].slice(0, 8);
       });
-
-      addLogEntry('Executed Medical Query Bot Search', `Query: "${term}" — Confidence: ${summaryPayload.confidence}%`);
-    }, 150);
+      addLogEntry('Executed Medical Query Bot Search', `Query: "${term}" — Source: ${summaryPayload.source || 'Medical AI'} (${summaryPayload.confidence}%)`);
+    } catch (err) {
+      console.error('Bot query execution error:', err);
+    } finally {
+      setIsBotSearching(false);
+    }
   };
+
 
 
 
@@ -1300,15 +1306,36 @@ export default function HealioApp() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
             {/* Header Banner */}
             <div style={{ background: 'linear-gradient(135deg, rgba(30, 41, 59, 0.9) 0%, rgba(15, 23, 42, 0.95) 100%)', border: '1px solid rgba(129, 140, 248, 0.3)', borderRadius: '12px', padding: '24px', boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
-                <div style={{ background: 'rgba(129, 140, 248, 0.2)', color: '#818cf8', borderRadius: '10px', padding: '8px 12px', fontSize: '1.4rem' }}>🤖</div>
-                <div>
-                  <h2 style={{ fontFamily: 'var(--font-heading)', color: 'white', fontSize: '1.4rem' }}>
-                    Clinical AI Medical Query Bot & Executive Summary Synthesis
-                  </h2>
-                  <p style={{ fontSize: '0.84rem', color: 'var(--text-muted)' }}>
-                    Search any clinical, statutory, pharmaceutical, or operational query across all indexed document registries for verifiable grounded executive summaries.
-                  </p>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px', marginBottom: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div style={{ background: 'rgba(129, 140, 248, 0.2)', color: '#818cf8', borderRadius: '10px', padding: '8px 12px', fontSize: '1.4rem' }}>🤖</div>
+                  <div>
+                    <h2 style={{ fontFamily: 'var(--font-heading)', color: 'white', fontSize: '1.4rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      Clinical AI Medical Query Bot & Executive Summary
+                      <span className="badge" style={{ background: 'linear-gradient(135deg, #a855f7 0%, #6366f1 100%)', color: 'white', fontSize: '0.66rem' }}>
+                        ✨ Powered by Google Gemini AI
+                      </span>
+                    </h2>
+                    <p style={{ fontSize: '0.84rem', color: 'var(--text-muted)' }}>
+                      Search any clinical, medical, or statutory question. Automatically connects to Google Gemini AI for queries outside loaded documents.
+                    </p>
+                  </div>
+                </div>
+
+                {/* AI Query Mode Selector Toggle */}
+                <div style={{ display: 'flex', background: 'rgba(15, 23, 42, 0.7)', border: '1px solid rgba(129, 140, 248, 0.3)', borderRadius: '8px', padding: '3px' }}>
+                  <button 
+                    style={{ padding: '6px 12px', borderRadius: '6px', fontSize: '0.74rem', border: 'none', cursor: 'pointer', background: !useGeminiMode ? 'var(--primary-cyan)' : 'transparent', color: !useGeminiMode ? 'black' : 'var(--text-muted)', fontWeight: 700 }}
+                    onClick={() => setUseGeminiMode(false)}
+                  >
+                    📄 Document Registries Mode
+                  </button>
+                  <button 
+                    style={{ padding: '6px 12px', borderRadius: '6px', fontSize: '0.74rem', border: 'none', cursor: 'pointer', background: useGeminiMode ? 'linear-gradient(135deg, #a855f7 0%, #6366f1 100%)' : 'transparent', color: useGeminiMode ? 'white' : 'var(--text-muted)', fontWeight: 700 }}
+                    onClick={() => setUseGeminiMode(true)}
+                  >
+                    ✨ Google Gemini AI Mode
+                  </button>
                 </div>
               </div>
 
@@ -1317,31 +1344,37 @@ export default function HealioApp() {
                 <input 
                   type="text" 
                   className="search-input" 
-                  style={{ flex: 1, borderColor: '#818cf8', fontSize: '0.95rem', padding: '12px 16px' }} 
-                  placeholder="Ask any medical or statutory question (e.g., What are mandatory PDMP checking rules? / PA ratio caps)..." 
+                  style={{ flex: 1, borderColor: useGeminiMode ? '#c084fc' : '#818cf8', fontSize: '0.95rem', padding: '12px 16px' }} 
+                  placeholder={useGeminiMode ? "Ask Google Gemini any medical or health question (e.g. What are symptoms of Type 2 Diabetes? / How does Aspirin work?)..." : "Ask any medical or statutory question (e.g., What are mandatory PDMP checking rules? / PA ratio caps)..."} 
                   value={botSearchInput} 
                   onChange={e => setBotSearchInput(e.target.value)} 
                   onKeyDown={e => e.key === 'Enter' && handleExecuteBotQuery()} 
                 />
                 <button 
                   className="btn btn-primary" 
-                  style={{ background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)', padding: '12px 24px', fontSize: '0.92rem', fontWeight: 700 }} 
+                  style={{ background: useGeminiMode ? 'linear-gradient(135deg, #a855f7 0%, #6366f1 100%)' : 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)', padding: '12px 24px', fontSize: '0.92rem', fontWeight: 700 }} 
                   onClick={() => handleExecuteBotQuery()}
                 >
-                  {isBotSearching ? '⏳ Synthesizing...' : '🔍 Search & Synthesize'}
+                  {isBotSearching ? '⏳ Synthesizing...' : (useGeminiMode ? '✨ Ask Gemini AI' : '🔍 Search & Synthesize')}
                 </button>
               </div>
 
               {/* Quick Suggested Prompts */}
               <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '14px', alignItems: 'center' }}>
                 <span style={{ fontSize: '0.74rem', color: 'var(--text-dim)', fontWeight: 600 }}>Suggested Queries:</span>
-                {[
+                {(useGeminiMode ? [
+                  "What are early warning signs & symptoms of Type 2 Diabetes?",
+                  "How does Aspirin function as an antiplatelet medication?",
+                  "What are standard clinical dosage & side effects of Metformin?",
+                  "What is the clinical difference between viral & bacterial pneumonia?",
+                  "What acute emergency steps should be taken during anaphylactic shock?"
+                ] : [
                   "What are the mandatory PDMP lookup & narcotic checking rules?",
                   "What are the physician supervision cap & PA ratio limits?",
                   "What emergency steps & address verification rules apply to 911 dispatch?",
                   "What are informed consent & certified interpreter mandates?",
                   "What HIPAA ePHI encryption & breach notification rules apply?"
-                ].map((prompt, idx) => (
+                ]).map((prompt, idx) => (
                   <button 
                     key={idx} 
                     className="btn btn-secondary" 
@@ -1355,6 +1388,7 @@ export default function HealioApp() {
                   </button>
                 ))}
               </div>
+
 
               {/* Recent Query History Chips */}
               {botQueryHistory.length > 0 && (
@@ -1375,19 +1409,24 @@ export default function HealioApp() {
                 {/* Header Stats */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', borderBottom: '1px solid rgba(255,255,255,0.06)', paddingBottom: '16px' }}>
                   <div>
-                    <span className="badge badge-info" style={{ fontSize: '0.7rem', marginBottom: '4px' }}>Query Executive Summary</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                      <span className="badge badge-info" style={{ fontSize: '0.7rem' }}>Query Executive Summary</span>
+                      <span className="badge" style={{ background: botQueryResult.source?.includes('Gemini') ? 'linear-gradient(135deg, #a855f7 0%, #6366f1 100%)' : 'rgba(6, 182, 212, 0.2)', color: 'white', fontSize: '0.68rem' }}>
+                        {botQueryResult.source?.includes('Gemini') ? '✨ Google Gemini AI' : '📄 Document Registry'}
+                      </span>
+                    </div>
                     <h3 style={{ fontSize: '1.2rem', color: 'white', fontWeight: 700 }}>{botQueryResult.query}</h3>
                   </div>
 
                   <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
                     <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Grounding Evidence</div>
+                      <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Grounding Score</div>
                       <div style={{ fontSize: '1.1rem', fontWeight: 800, color: botQueryResult.confidence >= 75 ? '#34d399' : '#fbbf24' }}>
                         {botQueryResult.confidence}% Confidence
                       </div>
                     </div>
                     <button className="btn btn-secondary" onClick={() => {
-                      const exportText = `# MEDICAL QUERY EXECUTIVE SUMMARY\n**Query:** ${botQueryResult.query}\n**Risk Level:** ${botQueryResult.riskLevel}\n**Evidence Confidence:** ${botQueryResult.confidence}%\n\n---\n\n## Overview\n${botQueryResult.overview}\n\n## Verbatim Line Citations\n` +
+                      const exportText = `# MEDICAL QUERY EXECUTIVE SUMMARY\n**Query:** ${botQueryResult.query}\n**Source:** ${botQueryResult.source || 'Medical AI'}\n**Risk Level:** ${botQueryResult.riskLevel}\n**Evidence Confidence:** ${botQueryResult.confidence}%\n\n---\n\n## Overview\n${botQueryResult.overview}\n\n## Verbatim Line Citations\n` +
                         botQueryResult.citations.map(c => `- [${c.docTitle} - Line ${c.lineNumber}]: "${c.text}"`).join('\n');
                       downloadFile(exportText, `query-summary-${Date.now()}.md`, 'text/markdown');
                       addLogEntry('Exported Query Summary', `Exported query summary for "${botQueryResult.query}"`);
@@ -1396,6 +1435,7 @@ export default function HealioApp() {
                     </button>
                   </div>
                 </div>
+
 
                 {/* Synthesized Overview Response */}
                 <div style={{ background: 'rgba(15, 23, 42, 0.6)', border: '1px solid rgba(129, 140, 248, 0.2)', borderRadius: '10px', padding: '18px', color: '#e2e8f0', lineHeight: 1.6, fontSize: '0.92rem', whiteSpace: 'pre-wrap' }}>
