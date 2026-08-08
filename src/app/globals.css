@@ -635,3 +635,121 @@ body {
   line-height: 1.5;
   margin-bottom: 18px;
 }
+
+/* Light Mode High-Contrast & Text Contrast Overrides */
+[data-theme="light"] h1,
+[data-theme="light"] h2,
+[data-theme="light"] h3,
+[data-theme="light"] h4,
+[data-theme="light"] .feature-card-title {
+  color: #0f172a !important;
+}
+
+[data-theme="light"] .healio-title {
+  background: linear-gradient(90deg, #0f172a, #0284c7, #4f46e5);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+[data-theme="light"] .healio-description,
+[data-theme="light"] .feature-card-desc,
+[data-theme="light"] p {
+  color: #334155 !important;
+}
+
+[data-theme="light"] .healio-hero {
+  background: linear-gradient(135deg, #ffffff, #f1f5f9);
+  border: 1px solid rgba(2, 132, 199, 0.2);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+}
+
+[data-theme="light"] .feature-card {
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+}
+
+[data-theme="light"] .feature-card:hover {
+  background: #f8fafc;
+  border-color: #0284c7;
+  box-shadow: 0 8px 24px rgba(2, 132, 199, 0.15);
+}
+
+[data-theme="light"] .search-input {
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  color: #0f172a;
+}
+
+[data-theme="light"] .search-input::placeholder {
+  color: #64748b;
+}
+
+[data-theme="light"] .btn-secondary {
+  background: #f1f5f9;
+  color: #0f172a;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+}
+
+[data-theme="light"] .btn-secondary:hover {
+  background: #e2e8f0;
+  border-color: #0284c7;
+}
+
+[data-theme="light"] .line-text {
+  color: #1e293b !important;
+}
+
+[data-theme="light"] .document-line {
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .document-line:hover {
+  background: rgba(2, 132, 199, 0.06);
+}
+
+[data-theme="light"] .modal-content {
+  background: #ffffff !important;
+  border-color: #0284c7;
+  color: #0f172a !important;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.15);
+}
+
+[data-theme="light"] .modal-overlay {
+  background: rgba(15, 23, 42, 0.5);
+}
+
+[data-theme="light"] .export-code-preview {
+  background: #f8fafc;
+  color: #0284c7;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="light"] .prompt-chip {
+  background: #f1f5f9;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  color: #334155;
+}
+
+[data-theme="light"] .prompt-chip:hover {
+  background: rgba(2, 132, 199, 0.12);
+  border-color: #0284c7;
+  color: #0f172a;
+}
+
+[data-theme="light"] .verbatim-quote {
+  background: rgba(2, 132, 199, 0.06);
+  color: #0369a1;
+}
+
+[data-theme="light"] .recommendation-box {
+  background: rgba(5, 150, 105, 0.08);
+  color: #047857;
+}
+
+[data-theme="light"] .stat-card,
+[data-theme="light"] .summary-section {
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
