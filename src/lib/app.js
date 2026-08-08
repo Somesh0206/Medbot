@@ -474,9 +474,6 @@ function renderDocumentRegistry(searchTerm = '') {
         <button class="btn btn-primary btn-load-doc" data-id="${doc.id}" style="padding: 6px 12px; font-size: 0.78rem;">
           ⚡ Load & Audit
         </button>
-        <button class="btn btn-secondary btn-export-doc-json" data-id="${doc.id}" style="padding: 6px 10px; font-size: 0.75rem;" title="Download JSON">
-          📥 JSON
-        </button>
         ${
           !doc.isSample
             ? `<button class="btn btn-secondary btn-delete-doc" data-id="${doc.id}" style="padding: 6px 10px; font-size: 0.75rem; color: #fb7185;" title="Delete Document">
@@ -491,14 +488,6 @@ function renderDocumentRegistry(searchTerm = '') {
     card.querySelector('.btn-load-doc').addEventListener('click', () => {
       registryModal.style.display = 'none';
       loadDocument(doc);
-    });
-
-    card.querySelector('.btn-export-doc-json').addEventListener('click', () => {
-      const parsed = parseDocumentText(doc.rawContent, doc.id);
-      const audit = runComplianceAudit(parsed);
-      const summary = generateVerifiableSummary(parsed, audit);
-      const json = exportToJSON(doc.title, parsed, summary, audit);
-      downloadFile(json, `${doc.id}-structured-schema.json`, 'application/json');
     });
 
     const deleteBtn = card.querySelector('.btn-delete-doc');
@@ -626,11 +615,6 @@ function setupEventListeners() {
   btnDownloadMarkdown.addEventListener('click', () => {
     const md = exportToMarkdown(activeDocData.title, parsedDoc, summaryData, auditResults);
     downloadFile(md, `${activeDocData.id}-audit-report.md`, 'text/markdown');
-  });
-
-  btnDownloadJSON.addEventListener('click', () => {
-    const json = exportToJSON(activeDocData.title, parsedDoc, summaryData, auditResults);
-    downloadFile(json, `${activeDocData.id}-audit-data.json`, 'application/json');
   });
 
   // Custom Upload & Persistent Storage Modal

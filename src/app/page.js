@@ -447,7 +447,7 @@ export default function HealioApp() {
     setNewFacilityContact('');
     setNewFacilityEmail('');
 
-    alert(`🏥 Facility Registered Successfully!\n\n"${name}" has been registered and stored in the Affiliated Facilities Registry (facilities_registry.json).`);
+    alert(`🏥 Facility Registered Successfully!\n\n"${name}" has been registered and stored in the Affiliated Facilities Registry.`);
     addLogEntry('Registered Hospital Facility', `Registered "${name}" (${facilityRecord.type}) under Affiliated Facilities`);
   };
 
@@ -1258,13 +1258,6 @@ export default function HealioApp() {
               <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
                 <button className="btn btn-primary" onClick={() => setShowFacilityModal(true)}>
                   ➕ Register New Hospital Facility
-                </button>
-                <button className="btn btn-secondary" onClick={() => {
-                  const jsonStr = exportFacilitiesJSON();
-                  downloadFile(jsonStr, 'facilities_registry.json', 'application/json');
-                  addLogEntry('Exported Facilities Registry', 'Downloaded facilities_registry.json');
-                }}>
-                  💾 Export Facilities JSON
                 </button>
               </div>
             </div>
