@@ -28,6 +28,41 @@
   --glass-bg: rgba(15, 23, 42, 0.8);
   --glass-border: 1px solid rgba(255, 255, 255, 0.1);
   --glass-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+  --header-bg: rgba(8, 12, 20, 0.95);
+  --nav-bg: rgba(15, 23, 42, 0.95);
+  --modal-bg: #0f172a;
+  --input-bg: rgba(30, 41, 59, 0.6);
+  --brand-title-gradient: linear-gradient(90deg, #ffffff, var(--primary-cyan));
+}
+
+[data-theme="light"] {
+  --bg-dark: #f1f5f9;
+  --bg-card: #ffffff;
+  --bg-card-hover: #f8fafc;
+  --border-card: rgba(0, 0, 0, 0.1);
+  --border-glow: rgba(2, 132, 199, 0.3);
+  
+  --primary-cyan: #0284c7;
+  --primary-cyan-glow: rgba(2, 132, 199, 0.2);
+  --accent-emerald: #059669;
+  --accent-emerald-glow: rgba(5, 150, 105, 0.2);
+  --accent-amber: #d97706;
+  --accent-rose: #e11d48;
+  --accent-rose-glow: rgba(225, 29, 72, 0.2);
+  --accent-indigo: #4f46e5;
+
+  --text-main: #0f172a;
+  --text-muted: #475569;
+  --text-dim: #64748b;
+
+  --glass-bg: rgba(255, 255, 255, 0.95);
+  --glass-border: 1px solid rgba(0, 0, 0, 0.08);
+  --glass-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+  --header-bg: rgba(255, 255, 255, 0.96);
+  --nav-bg: rgba(241, 245, 249, 0.96);
+  --modal-bg: #ffffff;
+  --input-bg: #f8fafc;
+  --brand-title-gradient: linear-gradient(90deg, #0f172a, var(--primary-cyan));
 }
 
 * {
@@ -45,12 +80,19 @@ body {
   font-family: var(--font-body);
   min-height: 100vh;
   overflow-x: hidden;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+[data-theme="light"] body {
+  background-image: 
+    radial-gradient(at 0% 0%, rgba(2, 132, 199, 0.05) 0px, transparent 50%),
+    radial-gradient(at 100% 100%, rgba(79, 70, 229, 0.05) 0px, transparent 50%);
 }
 
 /* App Header */
 .app-header {
   height: 68px;
-  background: rgba(8, 12, 20, 0.95);
+  background: var(--header-bg);
   backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--border-card);
   display: flex;
@@ -60,6 +102,7 @@ body {
   position: sticky;
   top: 0;
   z-index: 100;
+  transition: background-color 0.3s ease;
 }
 
 .brand-container {
@@ -86,7 +129,7 @@ body {
   font-family: var(--font-heading);
   font-size: 1.25rem;
   font-weight: 700;
-  background: linear-gradient(90deg, #ffffff, var(--primary-cyan));
+  background: var(--brand-title-gradient);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
@@ -103,13 +146,15 @@ body {
 
 /* Navigation Bar */
 .nav-bar {
-  background: rgba(15, 23, 42, 0.95);
+  background: var(--nav-bg);
   border-bottom: 1px solid var(--border-card);
   backdrop-filter: blur(12px);
   position: sticky;
   top: 68px;
   z-index: 90;
+  transition: background-color 0.3s ease;
 }
+
 
 .nav-container {
   max-width: 1400px;

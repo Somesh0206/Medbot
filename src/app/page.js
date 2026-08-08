@@ -60,6 +60,10 @@ export default function HealioApp() {
   const [botQueryHistory, setBotQueryHistory] = useState([]);
   const [useGeminiMode, setUseGeminiMode] = useState(false);
 
+  // Theme State (Dark / Light)
+  const [theme, setTheme] = useState('dark');
+
+
 
 
 
@@ -501,6 +505,26 @@ export default function HealioApp() {
     }
   }, [activePage]);
 
+  // Initialize theme from localStorage safely for SSR
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const savedTheme = localStorage.getItem('medbot_theme') || 'dark';
+      setTheme(savedTheme);
+      document.documentElement.setAttribute('data-theme', savedTheme);
+    }
+  }, []);
+
+  const toggleTheme = () => {
+    const nextTheme = theme === 'dark' ? 'light' : 'dark';
+    setTheme(nextTheme);
+    if (typeof window !== 'undefined') {
+      document.documentElement.setAttribute('data-theme', nextTheme);
+      localStorage.setItem('medbot_theme', nextTheme);
+    }
+    addLogEntry('Toggled Interface Theme', `Switched theme mode to ${nextTheme.toUpperCase()}`);
+  };
+
+
 
 
 
@@ -565,9 +589,19 @@ export default function HealioApp() {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          {/* Theme Toggle Button */}
+          <button 
+            className="btn btn-secondary" 
+            style={{ borderColor: theme === 'dark' ? '#f59e0b' : '#6366f1', color: theme === 'dark' ? '#fef08a' : '#4338ca', fontWeight: 700 }} 
+            onClick={toggleTheme}
+          >
+            {theme === 'dark' ? '☀️ Light Mode' : '🌙 Dark Mode'}
+          </button>
+
           {/* User Identity & Log Button: Only Hospital Staff can open full user logs */}
           <button 
             className="btn btn-secondary" 
+
             style={{ borderColor: userRole === 'staff' ? 'var(--primary-cyan)' : 'var(--accent-emerald)', color: 'white' }} 
             onClick={() => setShowLogModal(true)}
           >
