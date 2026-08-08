@@ -495,6 +495,13 @@ export default function HealioApp() {
     }
   };
 
+  useEffect(() => {
+    if (activePage === 'querybot' && !botQueryResult && !isBotSearching) {
+      handleExecuteBotQuery('What are the mandatory PDMP lookup & narcotic checking rules?');
+    }
+  }, [activePage]);
+
+
 
 
 
