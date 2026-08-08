@@ -7,6 +7,74 @@
 
 const PATIENTS_KEY = 'medbot_patients_registry_v1';
 const POLICIES_KEY = 'medbot_policies_registry_v1';
+const FACILITIES_KEY = 'medbot_facilities_registry_v1';
+
+/**
+ * Retrieves registered hospital facilities from LocalStorage (facilities_registry.json)
+ */
+export function getStoredFacilities() {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem(FACILITIES_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch (err) {
+    console.error('Failed to load facilities registry file:', err);
+    return [];
+  }
+}
+
+/**
+ * Saves a new affiliated hospital facility into LocalStorage (facilities_registry.json)
+ */
+export function saveFacilityToRegistry(facilityRecord) {
+  if (typeof window === 'undefined') return false;
+  const facilities = getStoredFacilities();
+  const existingIdx = facilities.findIndex((f) => f.id === facilityRecord.id);
+  if (existingIdx >= 0) {
+    facilities[existingIdx] = facilityRecord;
+  } else {
+    facilities.unshift(facilityRecord);
+  }
+
+  try {
+    localStorage.setItem(FACILITIES_KEY, JSON.stringify(facilities));
+    return true;
+  } catch (err) {
+    console.error('Failed to save facility to registry file:', err);
+    return false;
+  }
+}
+
+/**
+ * Removes an affiliated facility from LocalStorage by ID
+ */
+export function deleteFacilityFromRegistry(facilityId) {
+  if (typeof window === 'undefined') return false;
+  let facilities = getStoredFacilities();
+  facilities = facilities.filter((f) => f.id !== facilityId);
+  try {
+    localStorage.setItem(FACILITIES_KEY, JSON.stringify(facilities));
+    return true;
+  } catch (err) {
+    console.error('Failed to delete facility:', err);
+    return false;
+  }
+}
+
+/**
+ * Exports facilities registry file to JSON string
+ */
+export function exportFacilitiesJSON() {
+  const facilities = getStoredFacilities();
+  const payload = {
+    exportedAt: new Date().toISOString(),
+    registryFile: 'Affiliated Facilities File (facilities_registry.json)',
+    totalFacilities: facilities.length,
+    facilities
+  };
+  return JSON.stringify(payload, null, 2);
+}
+
 
 /**
  * Helper to determine storage key from target file identifier

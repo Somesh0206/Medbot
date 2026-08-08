@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect, useRef } from 'react';
-import { SAMPLE_DOCUMENTS } from '@/lib/sampleData';
+import { SAMPLE_DOCUMENTS, SAMPLE_FACILITIES } from '@/lib/sampleData';
 import { GOVT_HEALTH_HELPLINES } from '@/lib/helplinesData';
 import { parseDocumentText } from '@/lib/parser';
 import { runComplianceAudit } from '@/lib/auditEngine';
@@ -10,10 +10,15 @@ import { exportToMarkdown, downloadFile } from '@/lib/exportUtils';
 import {
   getStoredDocuments,
   saveDocumentToRegistry,
-  deleteDocumentFromRegistry
+  deleteDocumentFromRegistry,
+  getStoredFacilities,
+  saveFacilityToRegistry,
+  deleteFacilityFromRegistry,
+  exportFacilitiesJSON
 } from '@/lib/storageEngine';
 import { extractTextFromFile } from '@/lib/fileExtractor';
 import { splitDualDocument } from '@/lib/docDivider';
+
 
 export default function HealioApp() {
   const [allDocs, setAllDocs] = useState([]);
@@ -45,6 +50,21 @@ export default function HealioApp() {
   
   const [showExportModal, setShowExportModal] = useState(false);
   const [isExtractingFile, setIsExtractingFile] = useState(false);
+
+  // Affiliated Hospital Facilities State
+  const [facilities, setFacilities] = useState([]);
+  const [facilitySearch, setFacilitySearch] = useState('');
+  const [showFacilityModal, setShowFacilityModal] = useState(false);
+  const [newFacilityName, setNewFacilityName] = useState('');
+  const [newFacilityType, setNewFacilityType] = useState('Tertiary Care Hospital');
+  const [newFacilityAccreditation, setNewFacilityAccreditation] = useState('');
+  const [newFacilityLocation, setNewFacilityLocation] = useState('');
+  const [newFacilityContact, setNewFacilityContact] = useState('');
+  const [newFacilityEmail, setNewFacilityEmail] = useState('');
+  const [newFacilityPhysicians, setNewFacilityPhysicians] = useState('25');
+  const [newFacilityPaCap, setNewFacilityPaCap] = useState('1:4 (4 PAs per Supervising Physician)');
+  const [newFacilityServices, setNewFacilityServices] = useState('Telemedicine, Emergency Care, PDMP Integrated');
+
 
   // Mandatory Per-Session User Identity & Role States ('staff' | 'patient')
   const [userName, setUserName] = useState('');
@@ -128,7 +148,16 @@ export default function HealioApp() {
     if (stored.length > 0) {
       handleLoadDocument(stored[0], false);
     }
+
+    // Initialize facilities registry with sample data if empty
+    let storedFacilities = getStoredFacilities();
+    if (storedFacilities.length === 0) {
+      SAMPLE_FACILITIES.forEach((fac) => saveFacilityToRegistry(fac));
+      storedFacilities = getStoredFacilities();
+    }
+    setFacilities(storedFacilities.length > 0 ? storedFacilities : SAMPLE_FACILITIES);
   }, []);
+
 
   const handleSaveUserName = () => {
     const trimmed = nameInput.trim();
@@ -363,6 +392,71 @@ export default function HealioApp() {
     }
   };
 
+  const handleRegisterFacility = () => {
+    const name = newFacilityName.trim();
+    if (!name) {
+      alert('Please enter the Hospital Facility Name.');
+      return;
+    }
+
+    const facilityId = `fac-${Date.now()}`;
+    const servicesList = newFacilityServices
+      .split(',')
+      .map(s => s.trim())
+      .filter(Boolean);
+
+    const facilityRecord = {
+      id: facilityId,
+      name,
+      type: newFacilityType,
+      accreditationId: newFacilityAccreditation.trim() || `ACC-${Math.floor(100000 + Math.random() * 900000)}`,
+      location: newFacilityLocation.trim() || 'Health Science District',
+      emergencyContact: newFacilityContact.trim() || '+1 (800) 555-0199',
+      email: newFacilityEmail.trim() || 'admin@hospital.org',
+      physicianCount: parseInt(newFacilityPhysicians, 10) || 10,
+      paRatioCap: newFacilityPaCap,
+      complianceStatus: 'HIPAA & Statutory Compliant',
+      services: servicesList.length > 0 ? servicesList : ['General Healthcare', 'Emergency Protocol'],
+      registeredAt: new Date().toISOString()
+    };
+
+    saveFacilityToRegistry(facilityRecord);
+    const updated = getStoredFacilities();
+    setFacilities(updated);
+    setShowFacilityModal(false);
+
+    setNewFacilityName('');
+    setNewFacilityAccreditation('');
+    setNewFacilityLocation('');
+    setNewFacilityContact('');
+    setNewFacilityEmail('');
+
+    alert(`🏥 Facility Registered Successfully!\n\n"${name}" has been registered and stored in the Affiliated Facilities Registry (facilities_registry.json).`);
+    addLogEntry('Registered Hospital Facility', `Registered "${name}" (${facilityRecord.type}) under Affiliated Facilities`);
+  };
+
+  const handleDeleteFacility = (id, name) => {
+    if (confirm(`Are you sure you want to remove hospital facility "${name}" from the registry?`)) {
+      deleteFacilityFromRegistry(id);
+      const updated = getStoredFacilities();
+      setFacilities(updated);
+      addLogEntry('Deleted Hospital Facility', `Removed facility "${name}" (ID: ${id}) from Affiliated Facilities`);
+    }
+  };
+
+  const getFilteredFacilities = () => {
+    const term = facilitySearch.toLowerCase().trim();
+    if (!term) return facilities;
+    return facilities.filter(f =>
+      f.name.toLowerCase().includes(term) ||
+      f.type.toLowerCase().includes(term) ||
+      f.accreditationId.toLowerCase().includes(term) ||
+      f.location.toLowerCase().includes(term) ||
+      (f.services && f.services.some(s => s.toLowerCase().includes(term)))
+    );
+  };
+
+
   const getFilteredLines = () => {
     if (!parsedDoc?.lines) return [];
     const term = docSearchQuery.toLowerCase().trim();
@@ -435,11 +529,16 @@ export default function HealioApp() {
             📁 Registries: 📋 Patients ({patientDocsCount}) | 🏥 Policies ({policyDocsCount})
           </button>
 
+          <button className="btn btn-secondary" style={{ borderColor: 'var(--primary-cyan)', color: 'white' }} onClick={() => setActivePage('facilities')}>
+            🏢 Facilities ({facilities.length})
+          </button>
+
           <button className="btn btn-primary" onClick={() => setShowUploadModal(true)}>
             ➕ Insert Document
           </button>
         </div>
       </header>
+
 
       {/* Top Clean Navigation Bar */}
       <nav className="nav-bar">
@@ -462,8 +561,12 @@ export default function HealioApp() {
           <button className={`nav-link ${activePage === 'helplines' ? 'active' : ''}`} onClick={() => setActivePage('helplines')}>
             📞 Govt Health Lines ({GOVT_HEALTH_HELPLINES.length})
           </button>
+          <button className={`nav-link ${activePage === 'facilities' ? 'active' : ''}`} onClick={() => setActivePage('facilities')}>
+            🏢 Affiliated Facilities ({facilities.length})
+          </button>
         </div>
       </nav>
+
 
       {/* Clean Page View Containers */}
       <main className="page-container">
@@ -1028,7 +1131,108 @@ export default function HealioApp() {
             </div>
           </div>
         )}
+
+        {/* Page 7: Affiliated Hospital Facilities Registry */}
+        {activePage === 'facilities' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            {/* Page Header */}
+            <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-card)', borderRadius: '12px', padding: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
+              <div>
+                <h2 style={{ fontFamily: 'var(--font-heading)', color: 'white', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  🏥 Affiliated Hospital Facilities Registry
+                </h2>
+                <p style={{ fontSize: '0.84rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                  Registered hospitals, trauma centers, and virtual care networks affiliated with Healio Clinical AI Platform.
+                </p>
+              </div>
+
+              <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                <button className="btn btn-primary" onClick={() => setShowFacilityModal(true)}>
+                  ➕ Register New Hospital Facility
+                </button>
+                <button className="btn btn-secondary" onClick={() => {
+                  const jsonStr = exportFacilitiesJSON();
+                  downloadFile(jsonStr, 'facilities_registry.json', 'application/json');
+                  addLogEntry('Exported Facilities Registry', 'Downloaded facilities_registry.json');
+                }}>
+                  💾 Export Facilities JSON
+                </button>
+              </div>
+            </div>
+
+            {/* Search & Filter Bar */}
+            <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+              <input 
+                type="text" 
+                className="search-input" 
+                style={{ flex: 1 }} 
+                placeholder="🔍 Search facilities by name, location, accreditation ID, or services..." 
+                value={facilitySearch} 
+                onChange={e => setFacilitySearch(e.target.value)} 
+              />
+              <div style={{ fontSize: '0.82rem', color: 'var(--text-dim)' }}>
+                Showing {getFilteredFacilities().length} of {facilities.length} Facilities
+              </div>
+            </div>
+
+            {/* Facilities Grid */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: '20px' }}>
+              {getFilteredFacilities().length === 0 ? (
+                <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '60px 20px', background: 'var(--bg-card)', borderRadius: '12px', color: 'var(--text-muted)' }}>
+                  🏢 No hospital facilities match your search query. Click "Register New Hospital Facility" above to add one.
+                </div>
+              ) : (
+                getFilteredFacilities().map((fac) => (
+                  <div key={fac.id} style={{ background: 'var(--bg-card)', border: '1px solid var(--border-card)', borderRadius: '12px', padding: '20px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '14px' }}>
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px', marginBottom: '8px' }}>
+                        <h3 style={{ fontSize: '1.05rem', color: 'white', fontWeight: 700 }}>{fac.name}</h3>
+                        <span className="status-badge" style={{ background: 'rgba(52, 211, 153, 0.15)', color: '#34d399', fontSize: '0.68rem', whiteSpace: 'nowrap' }}>
+                          {fac.complianceStatus || 'Compliant'}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: '0.78rem', color: 'var(--primary-cyan)', marginBottom: '10px', fontWeight: 600 }}>
+                        {fac.type} | Accreditation: <code style={{ background: 'rgba(0,0,0,0.3)', padding: '2px 6px', borderRadius: '4px' }}>{fac.accreditationId}</code>
+                      </div>
+
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '0.78rem', color: 'var(--text-main)', marginBottom: '12px' }}>
+                        <div>📍 <strong>Location:</strong> {fac.location}</div>
+                        <div>📞 <strong>Emergency Helpline:</strong> {fac.emergencyContact}</div>
+                        <div>✉️ <strong>Email:</strong> {fac.email}</div>
+                        <div>👨‍⚕️ <strong>Physicians:</strong> {fac.physicianCount} Active | <strong>PA Cap:</strong> {fac.paRatioCap}</div>
+                      </div>
+
+                      <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '8px' }}>
+                        {fac.services && fac.services.map((srv, idx) => (
+                          <span key={idx} className="badge badge-info" style={{ fontSize: '0.66rem' }}>
+                            {srv}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '12px' }}>
+                      <span style={{ fontSize: '0.7rem', color: 'var(--text-dim)' }}>
+                        Registered: {new Date(fac.registeredAt).toLocaleDateString()}
+                      </span>
+                      {userRole === 'staff' && (
+                        <button 
+                          className="btn btn-secondary" 
+                          style={{ fontSize: '0.72rem', color: '#fb7185', padding: '4px 8px' }} 
+                          onClick={() => handleDeleteFacility(fac.id, fac.name)}
+                        >
+                          🗑️ Remove
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        )}
       </main>
+
 
       {/* Mandatory Per-Session User Identity & Role Selection Login Modal */}
       {showNameModal && (
@@ -1357,6 +1561,76 @@ export default function HealioApp() {
           </div>
         </div>
       )}
+
+      {/* Register Hospital Facility Modal */}
+      {showFacilityModal && (
+        <div className="modal-overlay" onClick={() => setShowFacilityModal(false)}>
+          <div className="modal-content" style={{ width: '600px', maxWidth: '95vw' }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3 style={{ fontFamily: 'var(--font-heading)', color: 'white' }}>🏥 Register Hospital Facility with Healio</h3>
+              <button style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', fontSize: '1.2rem' }} onClick={() => setShowFacilityModal(false)}>✕</button>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div>
+                <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Hospital Facility Name *</label>
+                <input type="text" className="search-input" style={{ width: '100%' }} placeholder="e.g. Mercy General Hospital & Trauma Center" value={newFacilityName} onChange={e => setNewFacilityName(e.target.value)} />
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div>
+                  <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Facility Type</label>
+                  <select className="search-input" style={{ width: '100%' }} value={newFacilityType} onChange={e => setNewFacilityType(e.target.value)}>
+                    <option value="Tertiary Care Hospital">Tertiary Care Hospital</option>
+                    <option value="Regional Medical Center">Regional Medical Center</option>
+                    <option value="Telehealth Provider Network">Telehealth Provider Network</option>
+                    <option value="Community Clinic">Community Clinic</option>
+                    <option value="Specialty Surgical Center">Specialty Surgical Center</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>NPI / Accreditation ID</label>
+                  <input type="text" className="search-input" style={{ width: '100%' }} placeholder="e.g. NPI-9842105742" value={newFacilityAccreditation} onChange={e => setNewFacilityAccreditation(e.target.value)} />
+                </div>
+              </div>
+              <div>
+                <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Full Physical Address / Location</label>
+                <input type="text" className="search-input" style={{ width: '100%' }} placeholder="e.g. 450 Medical Parkway, Austin, TX 78701" value={newFacilityLocation} onChange={e => setNewFacilityLocation(e.target.value)} />
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div>
+                  <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Emergency Helpline Contact</label>
+                  <input type="text" className="search-input" style={{ width: '100%' }} placeholder="e.g. +1 (800) 555-0199" value={newFacilityContact} onChange={e => setNewFacilityContact(e.target.value)} />
+                </div>
+                <div>
+                  <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Compliance Admin Email</label>
+                  <input type="email" className="search-input" style={{ width: '100%' }} placeholder="e.g. admin@mercyhealth.org" value={newFacilityEmail} onChange={e => setNewFacilityEmail(e.target.value)} />
+                </div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div>
+                  <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Active Physician Count</label>
+                  <input type="number" className="search-input" style={{ width: '100%' }} min="1" value={newFacilityPhysicians} onChange={e => setNewFacilityPhysicians(e.target.value)} />
+                </div>
+                <div>
+                  <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>PA Ratio Cap</label>
+                  <select className="search-input" style={{ width: '100%' }} value={newFacilityPaCap} onChange={e => setNewFacilityPaCap(e.target.value)}>
+                    <option value="1:4 (4 PAs per Supervising Physician)">1:4 (Standard Cap)</option>
+                    <option value="1:3 (3 PAs per Supervising Physician)">1:3 (Strict Cap)</option>
+                    <option value="1:2 (2 PAs per Supervising Physician)">1:2 (Conservative Cap)</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Services & Specializations (Comma Separated)</label>
+                <input type="text" className="search-input" style={{ width: '100%' }} placeholder="e.g. Emergency Care, Telemedicine Protocol, PDMP Integrated, Surgical Governance" value={newFacilityServices} onChange={e => setNewFacilityServices(e.target.value)} />
+              </div>
+              <button className="btn btn-primary" style={{ justifyContent: 'center', marginTop: '10px' }} onClick={handleRegisterFacility}>
+                ⚡ Register Facility into Affiliated Registries
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+

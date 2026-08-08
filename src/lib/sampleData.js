@@ -136,3 +136,49 @@ C.3 Affected individuals must receive written breach notices via first-class mai
 C.4 Annual mandatory HIPAA privacy and cybersecurity awareness training is required for all personnel with system access privileges.`
   }
 ];
+
+export const SAMPLE_FACILITIES = [
+  {
+    id: "fac-apex-health",
+    name: "Apex Medical Center & Telehealth Network",
+    type: "Tertiary Care Hospital & Virtual Network",
+    accreditationId: "NPI-9842105742",
+    location: "450 Medical Parkway, Austin, TX 78701",
+    emergencyContact: "+1 (800) 555-0199",
+    email: "compliance@apexhealth.org",
+    physicianCount: 48,
+    paRatioCap: "1:4 (4 PAs per Supervising Physician)",
+    complianceStatus: "HIPAA & Statutory Compliant",
+    services: ["Emergency Trauma", "Telemedicine Protocol", "PDMP Integrated", "Surgical Governance"],
+    registeredAt: "2026-01-15T09:30:00.000Z"
+  },
+  {
+    id: "fac-stjude-regional",
+    name: "St. Jude Regional Hospital & Trauma Center",
+    type: "Regional Medical Center",
+    accreditationId: "STATE-MED-84920",
+    location: "1200 Health Sciences Blvd, Houston, TX 77030",
+    emergencyContact: "+1 (888) 555-4321",
+    email: "governance@stjudehospital.org",
+    physicianCount: 72,
+    paRatioCap: "1:3 (3 PAs per Supervising Physician)",
+    complianceStatus: "HIPAA & Statutory Compliant",
+    services: ["24/7 ER Dispatch", "Inpatient Surgery", "EHR Sync", "Controlled Substances Board"],
+    registeredAt: "2026-02-01T14:15:00.000Z"
+  },
+  {
+    id: "fac-carefirst-clinic",
+    name: "CareFirst Community Health & Urgent Care",
+    type: "Community Clinic",
+    accreditationId: "CLINIC-TX-33019",
+    location: "880 Oakridge Lane, Dallas, TX 75201",
+    emergencyContact: "+1 (800) 555-8822",
+    email: "admin@carefirstclinic.org",
+    physicianCount: 18,
+    paRatioCap: "1:4 (4 PAs per Supervising Physician)",
+    complianceStatus: "Pending Audit Renewal",
+    services: ["Urgent Care", "Outpatient Telehealth", "Interpreter Services"],
+    registeredAt: "2026-03-10T11:00:00.000Z"
+  }
+];
+
