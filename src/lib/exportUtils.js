@@ -9,20 +9,25 @@ export function exportToMarkdown(docTitle, parsedDoc, summaryData, auditResults)
   let md = `# MEDICAL BOARD POLICY VERIFIABLE AUDIT REPORT\n`;
   md += `**Document Title:** ${docTitle}\n`;
   md += `**Audit Date:** ${timestamp} UTC\n`;
-  md += `**Total Indexed Lines:** ${parsedDoc.metadata.totalLines} | **Word Count:** ${parsedDoc.metadata.wordCount}\n`;
-  md += `**Overall Compliance Risk Level:** ${summaryData.stats?.riskLevel || 'Evaluated'}\n\n`;
+  const totalLines = parsedDoc?.metadata?.totalLines || 0;
+  const wordCount = parsedDoc?.metadata?.wordCount || 0;
+  md += `**Total Indexed Lines:** ${totalLines} | **Word Count:** ${wordCount}\n`;
+  md += `**Overall Compliance Risk Level:** ${summaryData?.stats?.riskLevel || 'Evaluated'}\n\n`;
 
   md += `---\n\n`;
   md += `## 1. EXECUTIVE SUMMARY & STATUTORY TAKEAWAYS\n\n`;
-  md += `${summaryData.overview}\n\n`;
+  md += `${summaryData?.overview || 'Executive summary unavailable.'}\n\n`;
 
-  if (summaryData.keyTakeaways && summaryData.keyTakeaways.length > 0) {
+  const takeawaysList = summaryData?.takeaways || summaryData?.keyTakeaways || [];
+  if (takeawaysList.length > 0) {
     md += `### Key Verifiable Findings\n\n`;
-    summaryData.keyTakeaways.forEach((item) => {
-      md += `- **${item.topic}** [Line ${item.citation.startLine}]: ${item.text}\n`;
+    takeawaysList.forEach((item) => {
+      const citeStr = item.citation ? `[Line ${item.citation.startLine}]` : '';
+      md += `- **${item.topic || 'Takeaway'}** ${citeStr}: ${item.text}\n`;
     });
     md += `\n`;
   }
+
 
   md += `---\n\n`;
   md += `## 2. COMPLIANCE AUDIT MATRIX & CITATION TRACE\n\n`;
