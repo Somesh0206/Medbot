@@ -1469,6 +1469,34 @@ export default function HealioApp() {
                   </div>
                 )}
 
+                {/* 🌐 Live Internet & Web References */}
+                {botQueryResult.webSources && botQueryResult.webSources.length > 0 && (
+                  <div>
+                    <h4 style={{ fontSize: '0.95rem', color: '#38bdf8', fontWeight: 700, marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      🌐 Live Internet & Web Medical References ({botQueryResult.webSources.length})
+                    </h4>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                      {botQueryResult.webSources.map((ws, idx) => (
+                        <a 
+                          key={idx} 
+                          href={ws.url} 
+                          target="_blank" 
+                          rel="noopener noreferrer" 
+                          style={{ textDecoration: 'none', background: 'rgba(15, 23, 42, 0.6)', border: '1px solid rgba(56, 189, 248, 0.25)', borderRadius: '8px', padding: '12px', display: 'flex', flexDirection: 'column', gap: '4px', transition: 'border-color 0.2s' }}
+                          onMouseOver={e => e.currentTarget.style.borderColor = '#38bdf8'}
+                          onMouseOut={e => e.currentTarget.style.borderColor = 'rgba(56, 189, 248, 0.25)'}
+                        >
+                          <div style={{ fontSize: '0.72rem', color: '#38bdf8', fontWeight: 700 }}>🏛️ {ws.sourceName}</div>
+                          <div style={{ fontSize: '0.82rem', color: 'white', fontWeight: 600 }}>{ws.title}</div>
+                          <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{ws.snippet}</div>
+                          <div style={{ fontSize: '0.68rem', color: '#94a3b8', marginTop: '4px', wordBreak: 'break-all' }}>🔗 {ws.url}</div>
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+
                 {/* Key Takeaways & Action Recommendations */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                   <div style={{ background: 'rgba(30, 41, 59, 0.3)', border: '1px solid var(--border-card)', borderRadius: '10px', padding: '14px' }}>
