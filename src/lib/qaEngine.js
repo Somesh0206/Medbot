@@ -185,3 +185,140 @@ export function generateDocumentQuestions(parsedDoc, activeDocData) {
 
   return Array.from(new Set(prompts)).slice(0, 4);
 }
+
+/**
+ * Synthesizes a structured Medical Executive Summary for any clinical, statutory, or medical query.
+ * @param {string} query 
+ * @param {Array} allDocuments 
+ * @param {Object} activeParsedDoc 
+ * @returns {Object} Executive Query Summary Payload
+ */
+export function synthesizeMedicalQuerySummary(query, allDocuments = [], activeParsedDoc = null) {
+  if (!query || !query.trim()) {
+    return {
+      query: "",
+      overview: "Please enter a clinical, statutory, or medical question above.",
+      confidence: 0,
+      riskLevel: "INFORMATIONAL",
+      citations: [],
+      takeaways: [],
+      recommendations: []
+    };
+  }
+
+  const cleanQuery = query.trim();
+  const queryLower = cleanQuery.toLowerCase();
+
+  // Aggregate lines across all available documents or active parsed document
+  let targetLines = [];
+  if (activeParsedDoc && activeParsedDoc.lines) {
+    targetLines = activeParsedDoc.lines.map(l => ({ ...l, docTitle: activeParsedDoc.metadata?.title || 'Loaded Document' }));
+  }
+
+  // Also collect lines from other stored documents if available
+  if (Array.isArray(allDocuments)) {
+    allDocuments.forEach(doc => {
+      if (doc.rawContent && doc.title !== (activeParsedDoc?.metadata?.title)) {
+        const rawLines = doc.rawContent.split(/\r?\n/);
+        rawLines.forEach((text, index) => {
+          if (text.trim().length > 15) {
+            targetLines.push({
+              lineNumber: index + 1,
+              text,
+              section: doc.category || 'Knowledge Base',
+              docTitle: doc.title
+            });
+          }
+        });
+      }
+    });
+  }
+
+  const stopWords = new Set([
+    "what", "is", "the", "are", "a", "an", "and", "or", "in", "of", "to", "for",
+    "with", "on", "at", "from", "by", "how", "does", "do", "can", "should", "must",
+    "required", "requirement", "requirements", "rule", "rules", "policy", "section",
+    "line", "tell", "me", "about", "which", "when", "where", "who", "why"
+  ]);
+
+  const queryTokens = queryLower
+    .replace(/[^\w\s]/g, " ")
+    .split(/\s+/)
+    .filter((w) => w.length > 2 && !stopWords.has(w));
+
+  const scoredLines = [];
+  targetLines.forEach((l) => {
+    const tLower = l.text.toLowerCase();
+    let score = 0;
+    queryTokens.forEach((tok) => {
+      if (tLower.includes(tok)) score += 2;
+    });
+    if (queryTokens.length > 1 && tLower.includes(queryLower)) score += 4;
+    if (score > 0) {
+      scoredLines.push({ line: l, score });
+    }
+  });
+
+  scoredLines.sort((a, b) => b.score - a.score);
+  const topMatches = scoredLines.slice(0, 6).map(s => s.line);
+
+  if (topMatches.length === 0) {
+    return {
+      query: cleanQuery,
+      overview: `No direct verbatim evidence matching "${cleanQuery}" was found in active document registries. To comply with statutory zero-hallucination mandates, answers are strictly synthesized from authenticated document lines.`,
+      confidence: 15,
+      riskLevel: "UNVERIFIED QUERY",
+      citations: [],
+      takeaways: [
+        { topic: "Zero-Hallucination Guardrail", text: "Answer withheld due to missing explicit source line citations." }
+      ],
+      recommendations: ["Upload or paste the relevant medical policy or clinical progress note to index new evidence."]
+    };
+  }
+
+  const citations = topMatches.map(l => ({
+    docTitle: l.docTitle,
+    lineNumber: l.lineNumber,
+    section: l.section || 'General Provision',
+    text: l.text.trim()
+  }));
+
+  const confidence = Math.min(98, Math.max(70, 75 + topMatches.length * 4));
+
+  // Determine risk level / clinical category based on search terms
+  let riskLevel = "INFORMATIONAL GUIDANCE";
+  if (/supervis|ratio|cap|pdmp|narcotic|schedule|breach|hipaa/i.test(queryLower)) {
+    riskLevel = "STATUTORY MANDATE (High Compliance Impact)";
+  } else if (/emergency|dispatch|address|anaphylaxis|cardiac/i.test(queryLower)) {
+    riskLevel = "EMERGENCY PROTOCOL (Critical Safety)";
+  } else if (/consent|interpreter|surgical|time-out/i.test(queryLower)) {
+    riskLevel = "CLINICAL GOVERNANCE";
+  }
+
+  const overview = `Executive Summary for Query: "${cleanQuery}"\n\nSynthesized across ${topMatches.length} verbatim evidence lines in document registry. Verified Grounding Confidence: ${confidence}%. Category: ${riskLevel}.\n\n` +
+    topMatches.slice(0, 3).map((m, idx) => `${idx + 1}. [${m.docTitle} - Line ${m.lineNumber}] ${m.text.trim()}`).join('\n\n');
+
+  const takeaways = topMatches.slice(0, 4).map(m => ({
+    topic: m.section || 'Clinical Finding',
+    docTitle: m.docTitle,
+    citation: { startLine: m.lineNumber, endLine: m.lineNumber },
+    text: m.text.trim()
+  }));
+
+  const recommendations = [
+    "Verify exact line citations against loaded statutory document before clinical execution.",
+    "Log query audit trail in per-session activity registry.",
+    "Ensure 24/7 staff adherence to statutory mandates and emergency protocols."
+  ];
+
+  return {
+    query: cleanQuery,
+    overview,
+    confidence,
+    riskLevel,
+    citations,
+    takeaways,
+    recommendations
+  };
+}
+

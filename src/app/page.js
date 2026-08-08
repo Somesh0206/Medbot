@@ -5,7 +5,8 @@ import { GOVT_HEALTH_HELPLINES } from '@/lib/helplinesData';
 import { parseDocumentText } from '@/lib/parser';
 import { runComplianceAudit } from '@/lib/auditEngine';
 import { generateVerifiableSummary } from '@/lib/summaryEngine';
-import { answerGroundedQuery, generateDocumentQuestions } from '@/lib/qaEngine';
+import { answerGroundedQuery, generateDocumentQuestions, synthesizeMedicalQuerySummary } from '@/lib/qaEngine';
+
 import { exportToMarkdown, downloadFile } from '@/lib/exportUtils';
 import {
   getStoredDocuments,
@@ -51,6 +52,13 @@ export default function HealioApp() {
   const [showExportModal, setShowExportModal] = useState(false);
   const [isExtractingFile, setIsExtractingFile] = useState(false);
   const [showEmergencyModal, setShowEmergencyModal] = useState(false);
+
+  // Medical Query Bot State
+  const [botSearchInput, setBotSearchInput] = useState('');
+  const [botQueryResult, setBotQueryResult] = useState(null);
+  const [isBotSearching, setIsBotSearching] = useState(false);
+  const [botQueryHistory, setBotQueryHistory] = useState([]);
+
 
 
   // Affiliated Hospital Facilities State
@@ -463,6 +471,26 @@ export default function HealioApp() {
     addLogEntry('Triggered Emergency SOS Call', 'Opened 112 Medical Emergency Call Dispatch Portal');
   };
 
+  const handleExecuteBotQuery = (queryToSearch) => {
+    const term = (queryToSearch || botSearchInput).trim();
+    if (!term) return;
+
+    setIsBotSearching(true);
+    setTimeout(() => {
+      const summaryPayload = synthesizeMedicalQuerySummary(term, allDocs, parsedDoc);
+      setBotQueryResult(summaryPayload);
+      setIsBotSearching(false);
+
+      setBotQueryHistory(prev => {
+        const filtered = prev.filter(q => q.toLowerCase() !== term.toLowerCase());
+        return [term, ...filtered].slice(0, 8);
+      });
+
+      addLogEntry('Executed Medical Query Bot Search', `Query: "${term}" — Confidence: ${summaryPayload.confidence}%`);
+    }, 150);
+  };
+
+
 
 
   const getFilteredLines = () => {
@@ -541,6 +569,10 @@ export default function HealioApp() {
             🏢 Facilities ({facilities.length})
           </button>
 
+          <button className="btn btn-secondary" style={{ borderColor: '#818cf8', color: '#a5b4fc' }} onClick={() => setActivePage('querybot')}>
+            🤖 Query Bot
+          </button>
+
           <button 
             className="btn" 
             style={{ background: 'linear-gradient(135deg, #ef4444 0%, #b91c1c 100%)', color: 'white', fontWeight: 800, border: '1px solid #f87171', boxShadow: '0 0 12px rgba(239, 68, 68, 0.5)' }} 
@@ -548,6 +580,7 @@ export default function HealioApp() {
           >
             🚨 SOS 112 Call
           </button>
+
 
           <button className="btn btn-primary" onClick={() => setShowUploadModal(true)}>
             ➕ Insert Document
@@ -581,6 +614,9 @@ export default function HealioApp() {
           <button className={`nav-link ${activePage === 'facilities' ? 'active' : ''}`} onClick={() => setActivePage('facilities')}>
             🏢 Affiliated Facilities ({facilities.length})
           </button>
+          <button className={`nav-link ${activePage === 'querybot' ? 'active' : ''}`} onClick={() => setActivePage('querybot')}>
+            🤖 Medical Query Bot
+          </button>
           <button 
             className="nav-link" 
             style={{ color: '#f87171', fontWeight: 700 }} 
@@ -588,6 +624,7 @@ export default function HealioApp() {
           >
             🚨 Emergency Call 112
           </button>
+
         </div>
       </nav>
 
@@ -1256,7 +1293,161 @@ export default function HealioApp() {
             </div>
           </div>
         )}
+
+
+        {/* Page 8: Medical Query Bot & Executive Summary Synthesis */}
+        {activePage === 'querybot' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            {/* Header Banner */}
+            <div style={{ background: 'linear-gradient(135deg, rgba(30, 41, 59, 0.9) 0%, rgba(15, 23, 42, 0.95) 100%)', border: '1px solid rgba(129, 140, 248, 0.3)', borderRadius: '12px', padding: '24px', boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
+                <div style={{ background: 'rgba(129, 140, 248, 0.2)', color: '#818cf8', borderRadius: '10px', padding: '8px 12px', fontSize: '1.4rem' }}>🤖</div>
+                <div>
+                  <h2 style={{ fontFamily: 'var(--font-heading)', color: 'white', fontSize: '1.4rem' }}>
+                    Clinical AI Medical Query Bot & Executive Summary Synthesis
+                  </h2>
+                  <p style={{ fontSize: '0.84rem', color: 'var(--text-muted)' }}>
+                    Search any clinical, statutory, pharmaceutical, or operational query across all indexed document registries for verifiable grounded executive summaries.
+                  </p>
+                </div>
+              </div>
+
+              {/* Query Search Form */}
+              <div style={{ display: 'flex', gap: '10px', marginTop: '16px' }}>
+                <input 
+                  type="text" 
+                  className="search-input" 
+                  style={{ flex: 1, borderColor: '#818cf8', fontSize: '0.95rem', padding: '12px 16px' }} 
+                  placeholder="Ask any medical or statutory question (e.g., What are mandatory PDMP checking rules? / PA ratio caps)..." 
+                  value={botSearchInput} 
+                  onChange={e => setBotSearchInput(e.target.value)} 
+                  onKeyDown={e => e.key === 'Enter' && handleExecuteBotQuery()} 
+                />
+                <button 
+                  className="btn btn-primary" 
+                  style={{ background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)', padding: '12px 24px', fontSize: '0.92rem', fontWeight: 700 }} 
+                  onClick={() => handleExecuteBotQuery()}
+                >
+                  {isBotSearching ? '⏳ Synthesizing...' : '🔍 Search & Synthesize'}
+                </button>
+              </div>
+
+              {/* Quick Suggested Prompts */}
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '14px', alignItems: 'center' }}>
+                <span style={{ fontSize: '0.74rem', color: 'var(--text-dim)', fontWeight: 600 }}>Suggested Queries:</span>
+                {[
+                  "What are the mandatory PDMP lookup & narcotic checking rules?",
+                  "What are the physician supervision cap & PA ratio limits?",
+                  "What emergency steps & address verification rules apply to 911 dispatch?",
+                  "What are informed consent & certified interpreter mandates?",
+                  "What HIPAA ePHI encryption & breach notification rules apply?"
+                ].map((prompt, idx) => (
+                  <button 
+                    key={idx} 
+                    className="btn btn-secondary" 
+                    style={{ fontSize: '0.72rem', padding: '4px 10px', background: 'rgba(129, 140, 248, 0.1)', borderColor: 'rgba(129, 140, 248, 0.25)', color: '#c7d2fe' }} 
+                    onClick={() => {
+                      setBotSearchInput(prompt);
+                      handleExecuteBotQuery(prompt);
+                    }}
+                  >
+                    💡 {prompt}
+                  </button>
+                ))}
+              </div>
+
+              {/* Recent Query History Chips */}
+              {botQueryHistory.length > 0 && (
+                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '10px', alignItems: 'center' }}>
+                  <span style={{ fontSize: '0.7rem', color: 'var(--text-dim)' }}>Recent Searches:</span>
+                  {botQueryHistory.map((h, i) => (
+                    <span key={i} className="status-badge" style={{ background: 'rgba(255, 255, 255, 0.05)', color: '#a5b4fc', fontSize: '0.68rem', cursor: 'pointer' }} onClick={() => { setBotSearchInput(h); handleExecuteBotQuery(h); }}>
+                      🕒 {h}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Query Executive Summary Results Card */}
+            {botQueryResult && (
+              <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-card)', borderRadius: '12px', padding: '24px', display: 'flex', flexDirection: 'column', gap: '18px' }}>
+                {/* Header Stats */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', borderBottom: '1px solid rgba(255,255,255,0.06)', paddingBottom: '16px' }}>
+                  <div>
+                    <span className="badge badge-info" style={{ fontSize: '0.7rem', marginBottom: '4px' }}>Query Executive Summary</span>
+                    <h3 style={{ fontSize: '1.2rem', color: 'white', fontWeight: 700 }}>{botQueryResult.query}</h3>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Grounding Evidence</div>
+                      <div style={{ fontSize: '1.1rem', fontWeight: 800, color: botQueryResult.confidence >= 75 ? '#34d399' : '#fbbf24' }}>
+                        {botQueryResult.confidence}% Confidence
+                      </div>
+                    </div>
+                    <button className="btn btn-secondary" onClick={() => {
+                      const exportText = `# MEDICAL QUERY EXECUTIVE SUMMARY\n**Query:** ${botQueryResult.query}\n**Risk Level:** ${botQueryResult.riskLevel}\n**Evidence Confidence:** ${botQueryResult.confidence}%\n\n---\n\n## Overview\n${botQueryResult.overview}\n\n## Verbatim Line Citations\n` +
+                        botQueryResult.citations.map(c => `- [${c.docTitle} - Line ${c.lineNumber}]: "${c.text}"`).join('\n');
+                      downloadFile(exportText, `query-summary-${Date.now()}.md`, 'text/markdown');
+                      addLogEntry('Exported Query Summary', `Exported query summary for "${botQueryResult.query}"`);
+                    }}>
+                      💾 Export Query Summary
+                    </button>
+                  </div>
+                </div>
+
+                {/* Synthesized Overview Response */}
+                <div style={{ background: 'rgba(15, 23, 42, 0.6)', border: '1px solid rgba(129, 140, 248, 0.2)', borderRadius: '10px', padding: '18px', color: '#e2e8f0', lineHeight: 1.6, fontSize: '0.92rem', whiteSpace: 'pre-wrap' }}>
+                  {botQueryResult.overview}
+                </div>
+
+                {/* Verbatim Citations Trace */}
+                {botQueryResult.citations && botQueryResult.citations.length > 0 && (
+                  <div>
+                    <h4 style={{ fontSize: '0.95rem', color: 'white', fontWeight: 700, marginBottom: '10px' }}>
+                      📌 Verbatim Document Line Citations ({botQueryResult.citations.length})
+                    </h4>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      {botQueryResult.citations.map((c, idx) => (
+                        <div key={idx} style={{ background: 'rgba(30, 41, 59, 0.4)', border: '1px solid var(--border-card)', borderRadius: '8px', padding: '10px 14px', fontSize: '0.8rem' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                            <span style={{ color: 'var(--primary-cyan)', fontWeight: 600 }}>📄 {c.docTitle}</span>
+                            <span className="badge badge-info" style={{ fontSize: '0.66rem' }}>Line {c.lineNumber}</span>
+                          </div>
+                          <div style={{ color: '#cbd5e1', fontStyle: 'italic' }}>"{c.text}"</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Key Takeaways & Action Recommendations */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                  <div style={{ background: 'rgba(30, 41, 59, 0.3)', border: '1px solid var(--border-card)', borderRadius: '10px', padding: '14px' }}>
+                    <h4 style={{ fontSize: '0.86rem', color: '#38bdf8', fontWeight: 700, marginBottom: '8px' }}>💡 Key Verifiable Findings</h4>
+                    <ul style={{ paddingLeft: '16px', margin: 0, fontSize: '0.78rem', color: '#cbd5e1', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      {botQueryResult.takeaways && botQueryResult.takeaways.map((t, i) => (
+                        <li key={i}><strong>{t.topic}:</strong> {t.text}</li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  <div style={{ background: 'rgba(30, 41, 59, 0.3)', border: '1px solid var(--border-card)', borderRadius: '10px', padding: '14px' }}>
+                    <h4 style={{ fontSize: '0.86rem', color: '#34d399', fontWeight: 700, marginBottom: '8px' }}>✅ Recommended Actions</h4>
+                    <ul style={{ paddingLeft: '16px', margin: 0, fontSize: '0.78rem', color: '#cbd5e1', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      {botQueryResult.recommendations && botQueryResult.recommendations.map((r, i) => (
+                        <li key={i}>{r}</li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </main>
+
 
 
       {/* Mandatory Per-Session User Identity & Role Selection Login Modal */}
