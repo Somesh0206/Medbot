@@ -637,48 +637,61 @@ export default function HealioApp() {
 
 
 
-      {/* Top Clean Navigation Bar */}
-      <nav className="nav-bar">
-        <div className="nav-container">
-          <button className={`nav-link ${activePage === 'home' ? 'active' : ''}`} onClick={() => setActivePage('home')}>
-            🏠 Home Overview
-          </button>
-          <button className={`nav-link ${activePage === 'stream' ? 'active' : ''}`} onClick={() => setActivePage('stream')}>
-            📜 Document Reader ({parsedDoc?.metadata?.totalLines || 0} Lines)
-          </button>
-          <button className={`nav-link ${activePage === 'audit' ? 'active' : ''}`} onClick={() => setActivePage('audit')}>
-            🛡️ Statutory Audit Matrix ({auditResults.length})
-          </button>
-          <button className={`nav-link ${activePage === 'summary' ? 'active' : ''}`} onClick={() => setActivePage('summary')}>
-            📊 Executive Summary
-          </button>
-          <button className={`nav-link ${activePage === 'qa' ? 'active' : ''}`} onClick={() => setActivePage('qa')}>
-            💬 Grounded Evidence Q&A ({dynamicQuestions.length})
-          </button>
-          <button className={`nav-link ${activePage === 'helplines' ? 'active' : ''}`} onClick={() => setActivePage('helplines')}>
-            📞 Govt Health Lines ({GOVT_HEALTH_HELPLINES.length})
-          </button>
-          <button className={`nav-link ${activePage === 'facilities' ? 'active' : ''}`} onClick={() => setActivePage('facilities')}>
-            🏢 Affiliated Facilities ({facilities.length})
-          </button>
-          <button className={`nav-link ${activePage === 'querybot' ? 'active' : ''}`} onClick={() => setActivePage('querybot')}>
-            🤖 Medical Query Bot
-          </button>
-          <button 
-            className="nav-link" 
-            style={{ color: '#f87171', fontWeight: 700 }} 
-            onClick={handleTriggerEmergency}
-          >
-            🚨 Emergency Call 112
-          </button>
+      {/* App Body Layout Shell with Left Vertical Sidebar */}
+      <div className="app-layout">
+        {/* Left Vertical Sidebar Navigation */}
+        <aside className="app-sidebar">
+          <div className="sidebar-group">
+            <div className="sidebar-group-title">MAIN WORKSPACES</div>
+            <button className={`sidebar-link ${activePage === 'home' ? 'active' : ''}`} onClick={() => setActivePage('home')}>
+              <span className="sidebar-link-content">🏠 Home Overview</span>
+            </button>
+            <button className={`sidebar-link ${activePage === 'stream' ? 'active' : ''}`} onClick={() => setActivePage('stream')}>
+              <span className="sidebar-link-content">📜 Document Reader</span>
+              <span className="badge badge-info">{parsedDoc?.metadata?.totalLines || 0}</span>
+            </button>
+            <button className={`sidebar-link ${activePage === 'audit' ? 'active' : ''}`} onClick={() => setActivePage('audit')}>
+              <span className="sidebar-link-content">🛡️ Audit Matrix</span>
+              <span className="badge badge-warning">{auditResults.length}</span>
+            </button>
+            <button className={`sidebar-link ${activePage === 'summary' ? 'active' : ''}`} onClick={() => setActivePage('summary')}>
+              <span className="sidebar-link-content">📊 Executive Summary</span>
+            </button>
+            <button className={`sidebar-link ${activePage === 'qa' ? 'active' : ''}`} onClick={() => setActivePage('qa')}>
+              <span className="sidebar-link-content">💬 Grounded Evidence Q&A</span>
+              <span className="badge badge-success">{dynamicQuestions.length}</span>
+            </button>
+          </div>
 
-        </div>
-      </nav>
+          <div className="sidebar-group">
+            <div className="sidebar-group-title">CLINICAL & DIRECTORIES</div>
+            <button className={`sidebar-link ${activePage === 'helplines' ? 'active' : ''}`} onClick={() => setActivePage('helplines')}>
+              <span className="sidebar-link-content">📞 Govt Health Lines</span>
+              <span className="badge badge-info">{GOVT_HEALTH_HELPLINES.length}</span>
+            </button>
+            <button className={`sidebar-link ${activePage === 'facilities' ? 'active' : ''}`} onClick={() => setActivePage('facilities')}>
+              <span className="sidebar-link-content">🏢 Affiliated Facilities</span>
+              <span className="badge badge-info">{facilities.length}</span>
+            </button>
+            <button className={`sidebar-link ${activePage === 'querybot' ? 'active' : ''}`} onClick={() => setActivePage('querybot')}>
+              <span className="sidebar-link-content">🤖 Medical Query Bot</span>
+            </button>
+          </div>
 
+          <div className="sidebar-group" style={{ marginTop: 'auto' }}>
+            <div className="sidebar-group-title">EMERGENCY DISPATCH</div>
+            <button 
+              className="sidebar-link" 
+              style={{ color: '#f87171', fontWeight: 700, background: 'rgba(239, 68, 68, 0.1)', borderColor: 'rgba(239, 68, 68, 0.3)' }} 
+              onClick={handleTriggerEmergency}
+            >
+              <span className="sidebar-link-content">🚨 Emergency Call 112</span>
+            </button>
+          </div>
+        </aside>
 
-
-      {/* Clean Page View Containers */}
-      <main className="page-container">
+        {/* Clean Page View Containers */}
+        <main className="page-container">
         {/* Page 1: Home Landing Page */}
         {activePage === 'home' && (
           <div>
@@ -1549,6 +1562,7 @@ export default function HealioApp() {
           </div>
         )}
       </main>
+      </div>
 
 
 
