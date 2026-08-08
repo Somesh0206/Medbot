@@ -50,6 +50,8 @@ export default function HealioApp() {
   
   const [showExportModal, setShowExportModal] = useState(false);
   const [isExtractingFile, setIsExtractingFile] = useState(false);
+  const [showEmergencyModal, setShowEmergencyModal] = useState(false);
+
 
   // Affiliated Hospital Facilities State
   const [facilities, setFacilities] = useState([]);
@@ -456,6 +458,12 @@ export default function HealioApp() {
     );
   };
 
+  const handleTriggerEmergency = () => {
+    setShowEmergencyModal(true);
+    addLogEntry('Triggered Emergency SOS Call', 'Opened 112 Medical Emergency Call Dispatch Portal');
+  };
+
+
 
   const getFilteredLines = () => {
     if (!parsedDoc?.lines) return [];
@@ -533,11 +541,20 @@ export default function HealioApp() {
             🏢 Facilities ({facilities.length})
           </button>
 
+          <button 
+            className="btn" 
+            style={{ background: 'linear-gradient(135deg, #ef4444 0%, #b91c1c 100%)', color: 'white', fontWeight: 800, border: '1px solid #f87171', boxShadow: '0 0 12px rgba(239, 68, 68, 0.5)' }} 
+            onClick={handleTriggerEmergency}
+          >
+            🚨 SOS 112 Call
+          </button>
+
           <button className="btn btn-primary" onClick={() => setShowUploadModal(true)}>
             ➕ Insert Document
           </button>
         </div>
       </header>
+
 
 
       {/* Top Clean Navigation Bar */}
@@ -564,8 +581,16 @@ export default function HealioApp() {
           <button className={`nav-link ${activePage === 'facilities' ? 'active' : ''}`} onClick={() => setActivePage('facilities')}>
             🏢 Affiliated Facilities ({facilities.length})
           </button>
+          <button 
+            className="nav-link" 
+            style={{ color: '#f87171', fontWeight: 700 }} 
+            onClick={handleTriggerEmergency}
+          >
+            🚨 Emergency Call 112
+          </button>
         </div>
       </nav>
+
 
 
       {/* Clean Page View Containers */}
@@ -1630,7 +1655,94 @@ export default function HealioApp() {
           </div>
         </div>
       )}
+
+      {/* 🚨 SOS 112 Medical Emergency Dispatch Modal */}
+      {showEmergencyModal && (
+        <div className="modal-overlay" onClick={() => setShowEmergencyModal(false)}>
+          <div className="modal-content" style={{ width: '560px', maxWidth: '95vw', border: '2px solid #ef4444', boxShadow: '0 0 30px rgba(239, 68, 68, 0.4)' }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header" style={{ borderBottom: '1px solid rgba(239, 68, 68, 0.3)' }}>
+              <h3 style={{ fontFamily: 'var(--font-heading)', color: '#f87171', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                🚨 SOS 112 Medical Emergency Dispatch
+              </h3>
+              <button style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', fontSize: '1.2rem' }} onClick={() => setShowEmergencyModal(false)}>✕</button>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div style={{ background: 'rgba(239, 68, 68, 0.12)', border: '1px solid rgba(239, 68, 68, 0.4)', borderRadius: '10px', padding: '16px', textAlign: 'center' }}>
+                <div style={{ fontSize: '0.82rem', color: '#fca5a5', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '4px' }}>
+                  National Universal Emergency Hotline
+                </div>
+                <div style={{ fontSize: '2.8rem', fontWeight: 900, color: '#ffffff', fontFamily: 'var(--font-code)', letterSpacing: '2px', textShadow: '0 0 10px rgba(239, 68, 68, 0.8)' }}>
+                  112
+                </div>
+                <div style={{ fontSize: '0.78rem', color: '#cbd5e1', marginTop: '4px' }}>
+                  24/7 Universal Emergency Dispatch & Medical Ambulance Service
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <a 
+                  href="tel:112" 
+                  className="btn" 
+                  style={{ flex: 1, justifyContent: 'center', background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)', color: 'white', fontWeight: 800, fontSize: '1.05rem', padding: '12px', borderRadius: '8px', textDecoration: 'none', boxShadow: '0 4px 14px rgba(239, 68, 68, 0.4)' }}
+                  onClick={() => addLogEntry('Dialed 112 Emergency', 'Initiated direct phone call to 112 Medical Dispatch')}
+                >
+                  📞 CALL 112 EMERGENCY DISPATCH NOW
+                </a>
+                <button 
+                  className="btn btn-secondary" 
+                  style={{ fontSize: '0.85rem' }} 
+                  onClick={() => {
+                    navigator.clipboard.writeText('112');
+                    alert('Copied 112 Emergency Hotline number.');
+                  }}
+                >
+                  📋 Copy 112
+                </button>
+              </div>
+
+              {/* Statutory Emergency Address Protocol Guidance */}
+              <div style={{ background: 'rgba(30, 41, 59, 0.6)', border: '1px solid var(--border-card)', borderRadius: '10px', padding: '14px', fontSize: '0.78rem', color: '#cbd5e1', lineHeight: 1.5 }}>
+                <div style={{ fontWeight: 700, color: 'white', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  📌 Emergency Protocol Directive (Statutory Rule 4.2)
+                </div>
+                Clinicians & callers must state the patient's exact <strong>physical address & location</strong> immediately upon dispatch connection. Maintain active communication until first responders arrive.
+              </div>
+
+              {/* Secondary Emergency Lines */}
+              <div>
+                <label style={{ fontSize: '0.78rem', color: 'var(--text-dim)', display: 'block', marginBottom: '8px', fontWeight: 600 }}>
+                  Secondary National Emergency Lines
+                </label>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                  <a 
+                    href="tel:102" 
+                    className="btn btn-secondary" 
+                    style={{ justifyContent: 'center', fontSize: '0.8rem', textDecoration: 'none', color: '#38bdf8' }}
+                    onClick={() => addLogEntry('Dialed 102 Ambulance', 'Initiated direct call to 102 Ambulance Services')}
+                  >
+                    🚑 102 Ambulance Services
+                  </a>
+                  <a 
+                    href="tel:108" 
+                    className="btn btn-secondary" 
+                    style={{ justifyContent: 'center', fontSize: '0.8rem', textDecoration: 'none', color: '#34d399' }}
+                    onClick={() => addLogEntry('Dialed 108 Emergency', 'Initiated direct call to 108 Disaster Helpline')}
+                  >
+                    🆘 108 Emergency Response
+                  </a>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '6px' }}>
+                <button className="btn btn-secondary" onClick={() => setShowEmergencyModal(false)}>Close Dispatch Portal</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+
 
